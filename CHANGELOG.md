@@ -6,6 +6,49 @@ GitHub Releases carry the same notes in English; maintainer-facing runbooks live
 
 ## [Unreleased]
 
+### Fixed
+- **The series-bible input disappeared a moment after pressing Add.** Pulling the
+  full project document (`mergeHostDoc` / `importHostProject`) used to overwrite
+  the local bible unconditionally, and the host-side `normalizeBible` dropped
+  every entry whose name was still empty — so a just-added row vanished on the
+  next 3-second sync (the 800ms push debounce had already sent the row, the host
+  stored a copy without it, and the pull wrote that copy back). Host bibles are
+  now applied only when `bibleUpdatedAt` is newer than the last synced stamp, and
+  rows that already carry a description or linked assets survive normalization.
+  A regression in `scripts/test-sync-bible.mjs` pins both directions (equal stamp
+  must keep local edits, newer stamp must still land).
+- **Shot titles were spoken as dialogue in generated videos.** The structured
+  video prompt put each shot's editorial title into the `[Shot N] time（title）`
+  line (and the first/last titles into `summary:`); video models that generate
+  audio read those short phrases as lines. Titles are gone from the prompt and
+  an explicit rule now says only `<d>…</d>` dialogue may be spoken — shot
+  numbers, timecodes, titles, SFX and style notes are annotations, never captions
+  or narration.
+- **Storyboards no longer exceed 15 seconds, and default to 10.** The storyboard
+  node's total-duration control is now 6/8/10/12/15 (default 10, custom input
+  capped at 15); generation always fits the shot durations to the target
+  (`fitShotDurations`, hard cap 15 — even when a scene would need 40 shots),
+  and legacy values above 15 are clamped in the client, the host-side gates and
+  the budget quote so estimates and execution agree.
+
+### Added
+- **Local upload on image and video nodes.** Both the empty state and the footer
+  now have an Upload button (image nodes take images, video nodes take videos).
+  Uploads go through the same asset pipeline as generated results (history,
+  downstream sync, automatic tail-frame extraction for videos), so imported
+  footage can be used for continuation and reference work.
+- **Per-shot editing for storyboards.** Every shot row has a pencil that opens a
+  full editor (title, duration, visual, motion, beats, camera, VFX, negative,
+  tail/cam/start, SFX, scene, characters, props, dialogue rows) with add/delete
+  and move up/down, plus an "Add shot" button on the storyboard node. Saving
+  re-runs the bible consistency check; no full-table regeneration is needed.
+- **"AI expand prompt" on image nodes.** A spark button under the prompt turns a
+  one-line prompt into a detailed image prompt using the series bible (worldview,
+  style anchor, characters/scenes/props) and the canvas-craft prompt rules. It
+  only rewrites the text field — no generation, no charge — and keeps the user's
+  subject, action and story intent.
+
+
 ## [0.20.4] — 2026-11-10
 
 ### Added

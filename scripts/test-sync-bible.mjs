@@ -148,6 +148,33 @@ const graph2 = JSON.parse(localStorageStub.getItem('dsh-ic:graph:p2') || 'null')
 ok(!!graph2 && !!graph2.nodes.n2, 'mergeHostDoc 未合并节点');
 ok(!!graph2 && Array.isArray(graph2.edges) && graph2.edges.length === 1, 'mergeHostDoc 未合并连线');
 
+// 1b) 设定集**本地正在编辑**时不得被同版本（或更旧）的 Host 副本冲掉：
+//     用户点「添加」→ 空行落本地 → 800ms 推送防抖窗口内 Host 的 docChanged 拉取返回同一版本。
+//     旧实现无条件 saveBibleLocal，输入框 2 秒内自己消失（缺陷 1）。Host 版本更新时才允许覆盖。
+{
+  const cur = JSON.parse(localStorageStub.getItem('dsh-ic:bible:p2'));
+  cur.characters.push({ name: '', desc: '正在输入…', assetIds: [] });
+  localStorageStub.setItem('dsh-ic:bible:p2', JSON.stringify(cur));
+  sync.mergeHostDoc('p2', {
+    nodes: {}, edges: [],
+    bible: { worldview: '测试世界观', style: '写实', characters: [{ name: '张山', desc: '主角' }], scenes: [], props: [] },
+    bibleUpdatedAt: T, // 与已同步版本相同：不是更新
+  });
+  const kept = JSON.parse(localStorageStub.getItem('dsh-ic:bible:p2'));
+  ok(kept.characters.some((c) => c.desc === '正在输入…'), '本地正在编辑的设定条目被同版本 Host 副本冲掉（输入框会自己消失）');
+  sync.mergeHostDoc('p2', {
+    nodes: {}, edges: [],
+    bible: { worldview: '外部更新后的世界观', style: '写实', characters: [{ name: '张山', desc: '主角' }], scenes: [], props: [] },
+    bibleUpdatedAt: T + 5000, // 真正的对话侧更新：必须落地
+  });
+  const applied = JSON.parse(localStorageStub.getItem('dsh-ic:bible:p2'));
+  ok(applied.worldview === '外部更新后的世界观', 'Host 设定集真正更新时没有落地（对话侧改的设定集画布看不到）');
+  ok(localStorageStub.getItem('dsh-ic:biblesync:p2') === String(T + 5000), '应用更新后同步时间戳未前移');
+  // 复原成后续用例依赖的内容
+  localStorageStub.setItem('dsh-ic:bible:p2', JSON.stringify({ worldview: '测试世界观', style: '写实', characters: [{ name: '张山', desc: '主角' }], scenes: [], props: [] }));
+  localStorageStub.setItem('dsh-ic:biblesync:p2', JSON.stringify(T));
+}
+
 // 2) 用户删除了连线（记入边墓碑）→ 陈旧推送带着同一条边也不得复活
 const g2 = JSON.parse(localStorageStub.getItem('dsh-ic:graph:p2') || 'null');
 g2.edges = []; // 用户删掉了连线

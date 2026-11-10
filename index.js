@@ -1013,7 +1013,10 @@ function normalizeBible(raw) {
         ? [...new Set(x.assetIds.map((a) => String(a || '').trim()).filter(Boolean))].slice(0, 20)
         : [],
     }))
-    .filter((x) => x.name);
+    // 名称还没填就先写了描述/绑了资产的行也是**用户正在编辑的数据**：只丢真正全空的行。
+    // 旧口径 `.filter((x) => x.name)` 会把「点了添加、还没敲名字」的条目直接吃掉，
+    // 客户端下一次同步拉回 Host 副本时输入框就凭空消失（0.20.5 修复）。
+    .filter((x) => x.name || x.desc || x.assetIds.length);
   return {
     worldview: String(b.worldview || '').slice(0, 8000),
     style: String(b.style || '').slice(0, 2000),
@@ -4103,7 +4106,8 @@ export function apply(ctx) {
             const sbDoc = readToolDoc({ projectId: pid, canvasId: cid });
             const sbNode0 = sbDoc.nodes[sb.nodeId];
             origReq = String((sbNode0 && sbNode0.data && sbNode0.data.requirement) || '');
-            segMax = Number(sbNode0 && sbNode0.data && sbNode0.data.targetDuration) || 15;
+            // 切段上限硬压到 15s（分镜表总时长上限；历史数据里可能存着更大的值）
+            segMax = Math.min(15, Math.max(1, Number(sbNode0 && sbNode0.data && sbNode0.data.targetDuration) || 15));
           } catch { /* 读不到按空处理 */ }
           let sbSt = await canvasExec(pid, cid, sb.nodeId, { timeoutMs: 10 * 60 * 1000 });
           let gate = PROD.gateStoryboard(sbSt.shots);
@@ -4229,7 +4233,7 @@ export function apply(ctx) {
             const sb = boards[i];
             run.paidPhase = 'video ' + (i + 1) + '/' + boards.length;
             const shots = Array.isArray(sb.data && sb.data.shots) ? sb.data.shots : [];
-            const segMax = Number(sb.data && sb.data.targetDuration) || 15;
+            const segMax = Math.min(15, Math.max(1, Number(sb.data && sb.data.targetDuration) || 15)); // 与 client/production 同口径：硬上限 15s
             const plan = planShotSegments(shots, { maxSeconds: segMax });
             // 客户端兜底同款（production.quote 同式）：切段为空但表里有镜头 → 整表按一段
             const segs = plan.segments.length ? plan.segments

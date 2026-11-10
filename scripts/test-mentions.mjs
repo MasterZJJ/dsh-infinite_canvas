@@ -138,6 +138,12 @@ eq(api.bibleNames({ characters: [{ name: '林晚' }], scenes: [{ name: '楼道' 
   if (sp.includes('non_diegetic_music:') && !api.buildStructuredVideoPrompt(shots2, refs2, b2, { zh: true }).includes('overall_soundscape:')) errs.push('无音乐时不应省略声音段');
   if (api.buildStructuredVideoPrompt(shots2, refs2, b2, { zh: true }).includes('non_diegetic_music:')) errs.push('未提供音乐时不应臆造 non_diegetic_music');
   if (api.buildStructuredVideoPrompt(shots2, [], b2, { zh: true }) !== '') errs.push('无参考图时应返回空串（回退普通提示词）');
+  // 缺陷 3（0.20.5）：镜头标题只是分镜表的排版标注，绝不能进视频提示词——带音频的视频模型
+  // 会把提示词里的短句当成台词念出来（用户实测：镜头标题被当对话说了）。
+  for (const t of ['开场', '对话', '叮嘱']) {
+    if (sp.includes(t)) errs.push('结构化提示词：镜头标题「' + t + '」仍出现在提示词里（会被带音频的模型朗读成台词）');
+  }
+  if (!sp.includes('绝不朗读')) errs.push('结构化提示词：缺少「镜号/时间码/标题只是剪辑标注、绝不朗读」的硬规则');
 }
 
 // 10) 分镜衔接：段落类型规划 / 衔接块 / 首帧软锚定 / 尾帧选帧评分 / 接缝判定

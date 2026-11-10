@@ -301,13 +301,19 @@ let sbNodeId = '';
   const ap0 = await M.autoApprove({ projectId: segPid, quoteId: qs.quoteId, confirm: '用户：按这个预算开机' });
   ok(ap0 && ap0.ok === true, '预算口径：按段数批准失败');
   const docSeg = await I.projectsGet({ id: segPid });
-  docSeg.nodes[sbB.nodeId].data.targetDuration = 30;
+  docSeg.nodes[sbB.nodeId].data.targetDuration = 12; // 15s 硬上限内的合法值（30 会被压到 15，与缺省同指纹）
   await I.projectsPut({ id: segPid, doc: docSeg });
   const stQ = await M.autoStatus({ projectId: segPid });
   ok(stQ.approval && stQ.approval.valid === false, '预算口径：targetDuration 变更后旧批准仍有效（指纹未吃每场上限）');
+  const q12 = P.quote(segPid, null, 2);
+  const scB12 = q12.scenes.find((s) => s.storyboardId === sbB.nodeId);
+  eq(scB12 && scB12.maxSeconds, 12, '预算口径：分镜表节点 data.targetDuration=12 应被 quote 读取（客户端同式）');
+  // 硬上限：历史数据里 >15s 的值必须按 15s 切段（否则单次生成超出厂商上限、预算也少算调用）
+  docSeg.nodes[sbB.nodeId].data.targetDuration = 30;
+  await I.projectsPut({ id: segPid, doc: docSeg });
   const q30 = P.quote(segPid, null, 2);
   const scB30 = q30.scenes.find((s) => s.storyboardId === sbB.nodeId);
-  eq(scB30 && scB30.maxSeconds, 30, '预算口径：分镜表节点 data.targetDuration=30 应被 quote 读取（客户端同式）');
+  eq(scB30 && scB30.maxSeconds, 15, '预算口径：targetDuration=30 应被压到硬上限 15s');
 
   // 已有视频的表不产生新调用：给场 B 接上视频 → 该场 videoCalls 归 0，总调用数降为 2
   const vB = await byName.get('canvas_create_node').execute({ projectId: segPid, type: 'video', name: '短表视频', connectFrom: sbB.nodeId }, {});

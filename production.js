@@ -258,7 +258,8 @@ export function createProduction(deps) {
       const secs = shots.reduce((a, s) => a + (Number(s && s.duration) || 0), 0);
       totalSeconds += secs;
       const hasVideo = videoNodes.some((v) => (doc.edges || []).some((e) => e.fromNode === n.id && e.toNode === v.id));
-      const maxSeconds = Number(n.data.targetDuration) || 15;
+      // 切段上限与客户端同口径：硬上限 15s（分镜表总时长上限），缺省 15s
+      const maxSeconds = Math.min(15, Math.max(1, Number(n.data.targetDuration) || 15));
       // 已有视频的表不产生新调用；待生成的表按切段算法数段（与客户端 expandStoryboard 同式同默认）
       let calls = 0;
       let refImages = 0;

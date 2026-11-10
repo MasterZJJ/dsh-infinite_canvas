@@ -638,7 +638,7 @@ const barsOn = () => HDR() + FOOT();
 }
 
 // ============================================================
-// 5b) 分镜数 / 单段上限支持自定义：下拉预设 + 数值夹取（用户指定 1–100 镜、1–300s 小数）
+// 5b) 分镜数 / 单段上限支持自定义：下拉预设 + 数值夹取（用户指定 1–100 镜；分镜总时长 1–15s 小数）
 // ============================================================
 {
   // 纯函数：自定义输入必须夹取到范围；整数/一位小数口径固定；非法输入回退 fallback
@@ -650,9 +650,9 @@ const barsOn = () => HDR() + FOOT();
     eq(cn('101', { min: 1, max: 100, integer: true, fallback: 8 }), { ok: true, value: 100 }, '分镜 101 应夹到 100');
     eq(cn('0', { min: 1, max: 100, integer: true, fallback: 8 }), { ok: false, value: 8 }, '分镜 0 是自动档，不是自定义值');
     eq(cn('abc', { min: 1, max: 100, integer: true, fallback: 8 }), { ok: false, value: 8 }, '非数字自定义输入应拒绝');
-    eq(cn('18.5', { min: 1, max: 300, integer: false, decimals: 1, fallback: 15 }), { ok: true, value: 18.5 }, '单段上限应支持一位小数');
-    eq(cn('300.4', { min: 1, max: 300, integer: false, decimals: 1, fallback: 15 }), { ok: true, value: 300 }, '单段上限 300.4 应夹到 300');
-    eq(cn('0.25', { min: 1, max: 300, integer: false, decimals: 1, fallback: 15 }), { ok: false, value: 15 }, '低于 1 秒的自定义上限应拒绝');
+    eq(cn('12.5', { min: 1, max: 15, integer: false, decimals: 1, fallback: 15 }), { ok: true, value: 12.5 }, '分镜总时长应支持一位小数');
+    eq(cn('15.4', { min: 1, max: 15, integer: false, decimals: 1, fallback: 15 }), { ok: true, value: 15 }, '超过硬上限 15s 的自定义值应夹到 15');
+    eq(cn('0.25', { min: 1, max: 15, integer: false, decimals: 1, fallback: 15 }), { ok: false, value: 15 }, '低于 1 秒的自定义总时长应拒绝');
   }
 
   // 分镜面板两个控件必须真的接上自定义输入与范围
@@ -674,7 +674,7 @@ const barsOn = () => HDR() + FOOT();
     ok(!!segSel, '分镜面板缺少单段上限下拉');
     if (segSel) {
       ok(segSel.props.editable === true, '单段上限下拉未开启自定义输入');
-      eq({ min: segSel.props.min, max: segSel.props.max, integer: segSel.props.integer }, { min: 1, max: 300, integer: false }, '单段上限自定义范围必须为 1–300');
+      eq({ min: segSel.props.min, max: segSel.props.max, integer: segSel.props.integer }, { min: 1, max: 15, integer: false }, '分镜总时长自定义范围必须为 1–15（硬上限 15s）');
       ok(Number(segSel.props.decimals) === 1, '单段上限自定义小数必须固定一位');
       ok(typeof segSel.props.customLabel === 'function', '单段上限下拉缺少自定义值展示格式');
     }
@@ -1261,6 +1261,98 @@ const barsOn = () => HDR() + FOOT();
     ok(!!block && !/controls: true/.test(block), '视频预览不得启用原生 controls（原型没有原生控件条）');
     ok(/onDoubleClick/.test(block) && /detail > 1/.test(block) && /openPanel\(\)/.test(block), '视频画面单击开面板 / 双击播放的既有规则被破坏');
   }
+}
+
+// ============================================================
+// 12) 0.20.5 修复：媒体节点本地上传 / 分镜逐镜编辑 / 图片 AI 补充提示词 / 分镜总时长默认 10s
+// ============================================================
+{
+  // —— 需求 2：图片节点收图片、视频节点收视频，空态与已出结果两种状态都能导入 ——
+  const fileInputs = (els) => els.filter((e) => e.type === 'input' && e.props && e.props.type === 'file');
+  const imgEls = findAll(NODES.MediaNodeBody({ n: nodeOf('n_img'), kind: 'image' }));
+  const imgUp = fileInputs(imgEls).filter((e) => String(e.props.accept || '').startsWith('image/'));
+  ok(imgUp.length >= 1, '图片节点缺少本地图片上传入口（input[type=file] accept=image/*）');
+  ok(imgEls.some((e) => e.type === 'button' && e.props && e.props['data-role'] === 'media-upload-btn'), '图片节点操作栏缺少「上传」按钮');
+  const vidEls = findAll(NODES.MediaNodeBody({ n: nodeOf('n_vid'), kind: 'video' }));
+  const vidUp = fileInputs(vidEls).filter((e) => String(e.props.accept || '').startsWith('video/'));
+  ok(vidUp.length >= 1, '视频节点缺少本地视频上传入口（input[type=file] accept=video/*）');
+  ok(vidEls.some((e) => e.type === 'button' && e.props && e.props['data-role'] === 'media-upload-btn'), '视频节点操作栏缺少「上传」按钮');
+  const emptyEls = findAll(NODES.MediaNodeBody({ n: nodeOf('n_empty_img'), kind: 'image' }));
+  ok(fileInputs(emptyEls).length >= 1, '空图片节点也必须能直接上传（不必先生成一张再替换）');
+  ok(/const uploadMediaKind = kind === 'video' \? 'video' : 'image'/.test(src), '上传必须按节点类型选 media kind');
+  ok(/commitGenResult\(n\.id, rec\.id, false, uploadMediaKind\)/.test(src), '上传结果必须走与生成产物相同的落库/回写路径（历史/下游同步）');
+
+  // —— 需求 5：分镜表可编辑（逐镜铅笔 + 新增镜头 + 编辑对话框） ——
+  const sbEls = findAll(NODES.StoryboardNodeBody({ n: nodeOf('n_sb') }));
+  const editBtns = sbEls.filter((e) => e.type === 'button' && e.props && e.props['data-role'] === 'shot-edit');
+  ok(editBtns.length === 1, '分镜每个镜头都必须有编辑入口（实际 ' + editBtns.length + ' 个 / 1 镜）');
+  ok(editBtns.every((b) => typeof b.props.onClick === 'function'), '镜头编辑按钮缺少点击处理');
+  ok(sbEls.some((e) => e.type === 'button' && e.props && e.props['data-role'] === 'shot-add'), '分镜表缺少「新增镜头」按钮');
+  const Dlg = NODES.ShotEditDialog;
+  ok(typeof Dlg === 'function', 'ShotEditDialog 未导出（镜头编辑无法回归/冒烟）');
+  if (typeof Dlg === 'function') {
+    const dlgEls = findAll(Dlg({ nodeId: 'n_sb', index: 0, onClose: noop }));
+    ok(dlgEls.some((e) => hasClass(e, 'dshic-modal-overlay')), '镜头编辑对话框缺少遮罩层');
+    const titleInput = dlgEls.find((e) => e.type === 'input' && e.props && e.props.value === SHOT.title);
+    ok(!!titleInput, '镜头编辑对话框没有带出镜头标题（字段未绑定当前镜头）');
+    ok(dlgEls.some((e) => e.type === 'button' && /保存|Save/.test(String(e.props && e.props.children))), '镜头编辑对话框缺少保存按钮');
+    ok(dlgEls.some((e) => e.type === 'button' && /删除本镜|Delete this shot/.test(String(e.props && e.props.title))), '镜头编辑对话框缺少删除镜头按钮');
+  }
+  // 编排放回 S.shotEdit（画布层单例），否则遮罩会跟着 world 的缩放跑位
+  ok(/S\.shotEdit && S\.shotEdit\.nodeId && S\.graph\.nodes\[S\.shotEdit\.nodeId\]/.test(src), '镜头编辑对话框必须在画布层按 S.shotEdit 渲染');
+  ok(/function openShotEdit\(/.test(src) && /function addStoryboardShot\(/.test(src), '缺少镜头编辑/新增的入口函数');
+
+  // —— 需求 6：图片节点的「AI 补充提示词」按钮（只改文本、不触发生成） ——
+  const imgComposer = findAll(NODES.GenComposer({ nodeId: 'n_img', node: nodeOf('n_img') }));
+  const aiBtn = imgComposer.filter((e) => e.type === 'button' && e.props && e.props['data-role'] === 'ai-expand');
+  ok(aiBtn.length === 1, '图片生成面板缺少「AI 补充提示词」按钮');
+  ok(aiBtn.every((b) => typeof b.props.onClick === 'function'), 'AI 补充提示词按钮缺少点击处理');
+  const vidComposer = findAll(NODES.GenComposer({ nodeId: 'n_vid', node: nodeOf('n_vid') }));
+  ok(!vidComposer.some((e) => e.type === 'button' && e.props && e.props['data-role'] === 'ai-expand'), 'AI 补充提示词只属于图片节点（视频面板不应出现）');
+  ok(/async function aiExpandImagePrompt\(/.test(src) && /nd\.data\.prompt = cleaned/.test(src), 'AI 补充提示词必须写回节点提示词（只改文本，不自动生成）');
+  ok(/bibleBlock\(bible\)/.test(fnSrc('aiExpandImagePrompt')), 'AI 补充提示词必须结合项目设定集（bible）');
+
+  // —— 需求 4：分镜总时长默认 10s、硬上限 15s ——
+  const sbComposer = findAll(NODES.GenComposer({ nodeId: 'n_sb', node: nodeOf('n_sb') }));
+  const durSel = sbComposer.find((e) => hasClass(e, 'is-segmax'));
+  ok(!!durSel, '分镜面板缺少总时长下拉');
+  if (durSel) {
+    ok(String(durSel.props.value) === '10', '未设置总时长时必须显示默认 10s（实际：' + durSel.props.value + '）');
+    const optVals = (durSel.props.options || []).map((o) => String(o && o.value));
+    ok(optVals.every((v) => Number(v) >= 1 && Number(v) <= 15), '总时长预设必须全部落在 1–15s（实际：' + optVals.join(',') + '）');
+    ok(!optVals.includes(''), '总时长下拉不再提供「自动（不设上限）」档：一张分镜表必须有上限');
+    ok(Number(durSel.props.max) === 15, '总时长自定义输入硬上限必须是 15s');
+  }
+  ok(/const STORYBOARD_DURATION_DEFAULT = 10;/.test(src) && /const STORYBOARD_DURATION_MAX = 15;/.test(src), '缺少分镜总时长常量（默认 10 / 上限 15）');
+  ok(/const targetDur = storyboardTargetDuration\(n\);/.test(src), '分镜生成必须使用 storyboardTargetDuration（默认 10s / 上限 15s）');
+  ok(/Math\.min\(STORYBOARD_DURATION_MAX, Math\.max\(1, Math\.round\(v \* 10\) \/ 10\)\)/.test(fnSrc('storyboardTargetDuration')), 'storyboardTargetDuration 必须把历史值夹到 15s 以内');
+}
+
+// ============================================================
+// 13) 分镜总时长语义（0.20.5）：默认 10s / 硬上限 15s / 归位后 Σ 严格等于目标
+// ============================================================
+{
+  const { storyboardTargetDuration, storyboardSegmentCap, fitShotDurations, STORYBOARD_DURATION_DEFAULT, STORYBOARD_DURATION_MAX } = SYNC;
+  eq({ d: STORYBOARD_DURATION_DEFAULT, m: STORYBOARD_DURATION_MAX }, { d: 10, m: 15 }, '分镜总时长常量必须为默认 10 / 上限 15');
+  eq(storyboardTargetDuration({ data: {} }), 10, '未设置总时长时生成目标必须是 10s（用户要求"默认最多 10 秒"）');
+  eq(storyboardTargetDuration({ data: { targetDuration: 12 } }), 12, '用户设定的 12s 必须原样生效');
+  eq(storyboardTargetDuration({ data: { targetDuration: 30 } }), 15, '历史数据 >15s 必须夹到硬上限 15s');
+  eq(storyboardTargetDuration({ data: { targetDuration: 0.2 } }), 1, '低于 1s 的历史值夹到 1s');
+  eq(storyboardSegmentCap({ data: {} }), 15, '未设置时切段上限沿用 15s（旧项目已有长表不白拆）');
+  eq(storyboardSegmentCap({ data: { targetDuration: 30 } }), 15, '切段上限同样不得突破 15s（否则单次生成超厂商上限）');
+
+  const mk = (durs) => durs.map((d, i) => ({ title: '镜' + (i + 1), duration: d }));
+  const sum = (arr) => Math.round(arr.reduce((a, s) => a + s.duration, 0) * 10) / 10;
+  const fit10 = fitShotDurations(mk([1.2, 5.5, 5.5, 14, 9]), 10);
+  eq(sum(fit10), 10, '归位后 Σ 必须恰等于目标 10s');
+  ok(fit10.every((s) => s.duration >= 0.3), '正常镜头数下每镜不得低于 0.3s');
+  const fitCapped = fitShotDurations(mk(Array.from({ length: 40 }, () => 3)), 10);
+  ok(sum(fitCapped) <= 15 + 1e-6, '40 镜时总时长也不得突破 15s 硬上限（实际 ' + sum(fitCapped) + 's）');
+  eq(sum(fitCapped), 10, '镜头过多时按均分仍要精确落到目标 10s');
+  ok(fitCapped.every((s) => s.duration >= 0.1), '均分后单镜最低 0.1s');
+  const fit15 = fitShotDurations(mk([4, 4, 4, 4, 4]), 15);
+  eq(sum(fit15), 15, '目标 15s 时 Σ 必须恰等于 15s');
+  ok(sum(fit15) <= STORYBOARD_DURATION_MAX, '任何归位结果都不得超过 15s');
 }
 
 if (errs.length) {
