@@ -48,6 +48,21 @@ GitHub Releases carry the same notes in English; maintainer-facing runbooks live
   only rewrites the text field — no generation, no charge — and keeps the user's
   subject, action and story intent.
 
+### Changed
+- **Storyboard total duration is a bounded control now.** The "auto by pacing"
+  option (which meant "no upper bound") is gone: the dropdown offers 6/8/10/12/15
+  seconds, shows 10 when a storyboard has no explicit value, and the custom input
+  refuses anything above 15. Existing storyboards with a larger stored value keep
+  producing at 15 until the user picks another allowed value.
+
+### Internal
+- Regression coverage for this batch: `test-sync-bible` (host bible must not
+  clobber local edits at an equal stamp, must land when newer), `test-mentions`
+  (shot titles must never reach the video prompt; the annotation-only rule must be
+  present), `test-node-layout` (upload entry points, per-shot editor, AI expand
+  button, 10s default/15s cap and `fitShotDurations` invariants) and
+  `test-production` (budget quote clamps legacy durations to 15s).
+
 
 ## [0.20.4] — 2026-11-10
 
