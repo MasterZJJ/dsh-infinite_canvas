@@ -1388,6 +1388,20 @@ function revealCanvasInRight() {
       'contToggleHint': '开启后，分镜会为每镜写出「承接上镜尾态 / 接点尾态（动作进行中）/ 运镜延续 / 段落类型」——分段生成才能接得上',
       'shotTail': '接点尾态',
       'shotEditTitle': '镜头编辑',
+      'shotTableEditTitle': '编辑分镜表',
+      'shotTableSummary': '{n} 镜 · 总时长 {t}s',
+      'shotTableTarget': '目标时长',
+      'shotTableFit': '按目标归位',
+      'shotTableFitHint': '按目标总时长等比缩放全部镜头（末镜吸收舍入误差，Σ 恰等于目标）',
+      'shotTableFitDone': '已按 {t}s 归位',
+      'shotTableSave': '保存整表',
+      'shotTableSaved': '分镜表已保存',
+      'shotTableCapped': '总时长超过 15s 上限，已按 {t}s 归位后保存',
+      'shotTableOverCap': '本表 {t}s 超过 15s 硬上限：点镜头右侧铅笔打开整表编辑 →「按目标归位」',
+      'shotTableOverCapShort': '超过 15s 硬上限',
+      'shotTableOverTarget': '本表 {t}s 超过目标 {n}s（硬上限 15s）：点镜头铅笔整表编辑并归位',
+      'shotTableShots': '镜头列表',
+      'shotTableEmpty': '本表还没有镜头：点「新增镜头」',
       'shotEditHint': '直接改字段后保存；本表当前总时长 {t}s（默认一张表 10s、硬上限 15s）',
       'shotFieldTitle': '镜头标题',
       'shotFieldDuration': '时长（秒）',
@@ -2436,6 +2450,20 @@ function revealCanvasInRight() {
       'contToggleHint': 'When on, the storyboard writes a tail state / start state / camera carry-over / segment type for every shot — that is what makes separately generated segments connect',
       'shotTail': 'Hand-off tail',
       'shotEditTitle': 'Edit shot',
+      'shotTableEditTitle': 'Edit storyboard',
+      'shotTableSummary': '{n} shots · {t}s total',
+      'shotTableTarget': 'Target duration',
+      'shotTableFit': 'Fit to target',
+      'shotTableFitHint': 'Scale every shot proportionally to the target total (last shot absorbs rounding; the sum lands exactly on target)',
+      'shotTableFitDone': 'Fitted to {t}s',
+      'shotTableSave': 'Save table',
+      'shotTableSaved': 'Storyboard saved',
+      'shotTableCapped': 'Total exceeded the 15s cap — fitted to {t}s before saving',
+      'shotTableOverCap': 'This table is {t}s, over the hard 15s cap: click a shot pencil → full-table editor → Fit to target',
+      'shotTableOverCapShort': 'Over the hard 15s cap',
+      'shotTableOverTarget': 'This table is {t}s, over the {n}s target (hard cap 15s): open the table editor and fit it',
+      'shotTableShots': 'Shots',
+      'shotTableEmpty': 'No shots yet — click Add shot',
       'shotEditHint': 'Edit any field and save; this storyboard currently totals {t}s (default 10s per table, hard cap 15s)',
       'shotFieldTitle': 'Shot title',
       'shotFieldDuration': 'Duration (s)',
@@ -3320,6 +3348,25 @@ body[data-ds-dark-theme] .dshic-toast{border-color:var(--dsw-alias-border-l2);}
 .dshic-shot-edit-label{flex:none;width:104px;font-size:11px;color:var(--dsw-alias-label-secondary);}
 .dshic-shot-edit-row.is-col .dshic-shot-edit-label{width:auto;}
 .dshic-shot-edit-dlg{display:flex;align-items:center;gap:5px;}
+/* 分镜表整表编辑器（0.20.6）：左镜头列表 + 右字段，头尾固定、正文各自滚动 */
+.dshic-modal.is-sbe{max-height:calc(100vh - 48px);}
+.dshic-sbe-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 0;flex:none;}
+.dshic-sbe-total{font-size:12.5px;color:var(--dshic-ink);}
+.dshic-sbe-total.is-warn{color:var(--dsw-alias-state-warning-primary,#d08700);}
+.dshic-sbe-total.is-over{color:var(--dsw-alias-state-error-primary);}
+.dshic-sbe-body{display:flex;gap:10px;min-height:0;flex:1 1 auto;overflow:hidden;}
+.dshic-sbe-list{flex:none;width:212px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;
+  max-height:min(56vh,520px);padding-right:4px;}
+.dshic-sbe-item{display:flex;align-items:center;gap:6px;border:1px solid var(--dshic-line2);border-radius:8px;
+  background:transparent;color:var(--dshic-ink);font:inherit;font-size:11.5px;padding:5px 7px;cursor:pointer;text-align:left;}
+.dshic-sbe-item:hover{border-color:var(--dsw-alias-brand-primary);}
+.dshic-sbe-item.is-active{border-color:var(--dsw-alias-brand-primary);
+  background:color-mix(in srgb,var(--dsw-alias-brand-primary) 10%,transparent);}
+.dshic-sbe-item-idx{flex:none;width:16px;color:var(--dshic-ink3);font-size:10.5px;}
+.dshic-sbe-item-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dshic-sbe-item-d{flex:none;color:var(--dshic-ink3);font-size:10.5px;}
+.dshic-sbe-form{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;overflow-y:auto;
+  max-height:min(56vh,520px);padding-right:4px;}
 /* 提示词框下的 AI 动作行（图片节点：AI 补充提示词） */
 .dshic-composer-airow{display:flex;align-items:center;gap:6px;flex:none;padding-top:1px;}
 .dshic-shot-grip{position:absolute;right:3px;bottom:3px;width:18px;height:14px;display:flex;align-items:center;justify-content:center;
@@ -11745,27 +11792,15 @@ function queueThumb(assetId) {
      *  而视频控件/分镜清单会在 pointerdown 里 stopPropagation（不经节点根选中），
      *  所以这里补一次"未选中则选中"（已选中时不动，保留 Shift 多选）。
      *  只有内容区（媒体预览/空态、正文、镜头清单）会走到这里——标题栏与底部操作栏不弹面板。 */
-    /** 打开某镜的编辑对话框（画布层渲染，见 ShotEditDialog 注释）。 */
+    /** 打开分镜表编辑器（画布层渲染，见 StoryboardEditDialog 注释）。
+     *  index = 聚焦镜头（点哪一镜就选中哪一镜）；index === 镜头数 = 打开即新增一镜。 */
     function openShotEdit(nodeId, index) {
       update((s) => { s.shotEdit = { nodeId, index }; });
     }
-    /** 追加一镜并直接打开编辑器（默认 2s、续帧，标题按镜号自动命名）。 */
+    /** 新增镜头：直接把「空一镜」带进整表编辑器（取消即丢弃，绝不先落库再等用户取消）。 */
     function addStoryboardShot(n) {
-      let idx = 0;
-      update((s) => {
-        const nd = s.graph.nodes[n.id];
-        if (!nd) return;
-        const list = Array.isArray(nd.data.shots) ? nd.data.shots.slice() : [];
-        list.push({
-          title: T('shotPrefix') + (list.length + 1), visual: '', motion: '', duration: 2,
-          seg: 'continuation', characters: [], scene: '', props: [], dialogue: [], sfx: '', timeBeats: [],
-        });
-        nd.data.shots = list;
-        idx = list.length - 1;
-        s.assetsTick++;
-      });
-      flushSave();
-      openShotEdit(n.id, idx);
+      const list = (n && n.data && Array.isArray(n.data.shots)) ? n.data.shots : [];
+      openShotEdit(n.id, list.length);
     }
     function selectAndOpenComposer(nodeId) {
       const nd = nodeId ? S.graph.nodes[nodeId] : null;
@@ -14760,179 +14795,255 @@ function queueThumb(assetId) {
       ];
     }
 
-    /** 分镜镜头编辑器（0.20.5 需求：分镜表需要可编辑）。
-     *  此前分镜表只能整表重新生成——错一个字/改一句台词都得全表重跑、镜头编号全变。
-     *  这里按镜编辑全部字段（标题/时长/画面/动作/机位/特效/负向/衔接三件套/台词/音效/角色场景道具），
-     *  支持增删镜头与上移/下移；保存后按当前设定集重算一致性告警。
+    /** 分镜表整表编辑器（0.20.6）：点任一镜头的铅笔都打开**同一张表**（左「镜头列表」+ 右「字段」）。
+     *  为什么从"单镜编辑"改成"整表编辑"：单镜编辑器看不见总时长，用户改完才发现一张表还是
+     *  28s/43s（默认应 ≤10s、硬上限 15s）。这里把「总时长读数 + 目标时长 + 一键归位」与全部镜头
+     *  放在同一处：整体可见、增删改一次保存；超 15s 保存时按目标机械归位（绝不写回超限数据）。
      *  对话框挂在画布层（S.shotEdit）：节点位于 .dshic-world 的 translate/scale 中，
      *  position:fixed 的遮罩放进节点会跟着缩放跑位。 */
-    function ShotEditDialog({ nodeId, index, onClose }) {
+    function StoryboardEditDialog({ nodeId, focusIndex, onClose }) {
       const node = S.graph.nodes[nodeId];
-      const shots = (node && node.data && node.data.shots) || [];
-      const src = shots[index] || {};
-      const [d, setD] = useState(() => ({
-        title: String(src.title || ''),
-        duration: String(Number(src.duration) || 3),
-        visual: String(src.visual || ''),
-        motion: String(src.motion || ''),
-        camera: String(src.camera || ''),
-        timeBeats: (src.timeBeats || []).join('\n'),
-        vfx: String(src.vfx || ''),
-        negative: String(src.negative || ''),
-        seg: String(src.seg || 'continuation'),
-        tail: String(src.tail || ''),
-        cam: String(src.cam || ''),
-        start: String(src.start || ''),
-        sfx: String(src.sfx || ''),
-        scene: String(src.scene || ''),
-        characters: (src.characters || []).join('、'),
-        props: (src.props || []).join('、'),
-        dialogue: normalizeDialogue(src.dialogue),
-      }));
-      const setF = (k, v) => setD((prev) => ({ ...prev, [k]: v }));
+      const mkBlank = (i) => ({
+        title: T('shotPrefix') + (i + 1), visual: '', motion: '', duration: 2, seg: 'continuation',
+        characters: [], scene: '', props: [], dialogue: [], sfx: '', timeBeats: [],
+      });
+      const cloneShot = (s) => ({
+        ...(s || {}),
+        title: String((s && s.title) || ''),
+        visual: String((s && s.visual) || ''),
+        motion: String((s && s.motion) || ''),
+        camera: String((s && s.camera) || ''),
+        vfx: String((s && s.vfx) || ''),
+        negative: String((s && s.negative) || ''),
+        seg: String((s && s.seg) || 'continuation'),
+        tail: String((s && s.tail) || ''),
+        cam: String((s && s.cam) || ''),
+        start: String((s && s.start) || ''),
+        sfx: String((s && s.sfx) || ''),
+        scene: String((s && s.scene) || ''),
+        duration: Number(s && s.duration) || 2,
+        timeBeats: Array.isArray(s && s.timeBeats) ? s.timeBeats.map(String) : [],
+        characters: Array.isArray(s && s.characters) ? s.characters.map(String) : [],
+        props: Array.isArray(s && s.props) ? s.props.map(String) : [],
+        dialogue: normalizeDialogue(s && s.dialogue),
+      });
+      const initShots = (node && node.data && node.data.shots) || [];
+      const [shots, setShots] = useState(() => {
+        const base = initShots.map(cloneShot);
+        const fi = Number(focusIndex) || 0;
+        // focusIndex === 镜头数 → 打开即"新增一镜"（取消则完全丢弃，绝不先落库）
+        if (fi >= base.length) base.push(mkBlank(base.length));
+        return base;
+      });
+      const [sel, setSel] = useState(() => Math.max(0, Math.min(Number(focusIndex) || 0, initShots.length)));
+      const [target, setTarget] = useState(() => storyboardTargetDuration(node));
+      const [targetTouched, setTargetTouched] = useState(false);
+      const cur = shots[sel] || null;
+      const total = Math.round(shots.reduce((a, s) => a + Math.max(0, Number(s && s.duration) || 0), 0) * 10) / 10;
+      const overCap = total > STORYBOARD_DURATION_MAX + 1e-6;
+      const patchShot = (i, patch) => setShots((prev) => prev.map((s, k) => (k === i ? { ...s, ...patch } : s)));
+      const setF = (k, v) => { if (cur) patchShot(sel, { [k]: v }); };
       const splitNames = (v) => String(v || '').split(/[、,，;；\s]+/).map((x) => x.trim()).filter(Boolean).slice(0, 6);
-      /** 落库 + 按当前设定集重算告警（与生成后的检查同规则；旧告警不能留着误导）。 */
-      const commit = (next, msg) => {
+      const addShot = () => { const idx = shots.length; setShots((prev) => prev.concat([mkBlank(prev.length)])); setSel(idx); };
+      const delShot = () => {
+        if (!shots.length) return;
+        setShots((prev) => prev.filter((_, k) => k !== sel));
+        setSel((s) => Math.max(0, Math.min(s, shots.length - 2)));
+      };
+      const moveShot = (dir) => {
+        const to = sel + dir;
+        if (to < 0 || to >= shots.length) return;
+        setShots((prev) => { const next = prev.slice(); const t = next[sel]; next[sel] = next[to]; next[to] = t; return next; });
+        setSel(to);
+      };
+      /** 一键归位：按目标总时长等比缩放各镜（末镜吸收残差，Σ 恰等于目标）。 */
+      const fit = () => {
+        if (!shots.length) return;
+        const fitted = fitShotDurations(shots.map((s) => ({ ...s })), target);
+        setShots(fitted.map(cloneShot));
+        toast(T('shotTableFitDone').replace('{t}', String(target)));
+      };
+      const save = () => {
+        // 逐镜合法性兜底（与 AI 解析/宿主写入同口径），整表一次写回
+        const finalShots = shots.map((s, i) => ({
+          ...s,
+          title: String(s.title || '').trim().slice(0, 24) || (T('shotPrefix') + (i + 1)),
+          duration: Math.max(0.1, Math.min(STORYBOARD_DURATION_MAX, Math.round((Number(s.duration) || 3) * 10) / 10)),
+          visual: String(s.visual || '').trim(),
+          motion: String(s.motion || '').trim(),
+          camera: String(s.camera || '').trim(),
+          timeBeats: (Array.isArray(s.timeBeats) ? s.timeBeats : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 4),
+          vfx: String(s.vfx || '').trim(),
+          negative: String(s.negative || '').trim(),
+          seg: String(s.seg || 'continuation'),
+          tail: String(s.tail || '').trim(),
+          cam: String(s.cam || '').trim(),
+          start: String(s.start || '').trim(),
+          sfx: String(s.sfx || '').trim(),
+          scene: String(s.scene || '').trim(),
+          characters: Array.isArray(s.characters) ? s.characters.map(String).map((x) => x.trim()).filter(Boolean).slice(0, 6) : [],
+          props: Array.isArray(s.props) ? s.props.map(String).map((x) => x.trim()).filter(Boolean).slice(0, 6) : [],
+          dialogue: normalizeDialogue(s.dialogue),
+        }));
+        const sum = finalShots.reduce((a, s) => a + (Number(s.duration) || 0), 0);
+        const cap = Math.min(STORYBOARD_DURATION_MAX, target);
+        let capped = false;
+        // 硬上限：一张分镜表绝不超过 15s。超了按目标归位再写（绝不把超限数据落库）
+        if (sum > STORYBOARD_DURATION_MAX + 1e-6) { fitShotDurations(finalShots, cap); capped = true; }
         update((s) => {
           const nd = s.graph.nodes[nodeId];
-          if (nd) nd.data.shots = next;
+          if (nd) {
+            nd.data.shots = finalShots;
+            if (targetTouched) nd.data.targetDuration = target;
+          }
           s.assetsTick++;
         });
         flushSave();
-        checkShotConsistency(next).then((warnings) => {
+        // 保存后按当前设定集重算一致性告警（旧告警不能留着误导）
+        checkShotConsistency(finalShots).then((warnings) => {
           update((s) => { const nd = s.graph.nodes[nodeId]; if (nd) nd.data.warnings = warnings; });
         }).catch(() => { /* 校验失败保留旧告警，不阻塞保存 */ });
-        if (msg) toast(msg);
-      };
-      const totalDur = shots.reduce((a, sh) => a + Math.max(0, Number(sh && sh.duration) || 0), 0);
-      const save = () => {
-        const patch = {
-          ...src,
-          title: String(d.title || '').trim().slice(0, 24) || (T('shotPrefix') + (index + 1)),
-          duration: Math.max(0.3, Math.min(STORYBOARD_DURATION_MAX, Math.round((Number(d.duration) || 3) * 10) / 10)),
-          visual: String(d.visual || '').trim(),
-          motion: String(d.motion || '').trim(),
-          camera: String(d.camera || '').trim(),
-          timeBeats: String(d.timeBeats || '').split(/\n+/).map((x) => x.trim()).filter(Boolean).slice(0, 4),
-          vfx: String(d.vfx || '').trim(),
-          negative: String(d.negative || '').trim(),
-          seg: String(d.seg || 'continuation'),
-          tail: String(d.tail || '').trim(),
-          cam: String(d.cam || '').trim(),
-          start: String(d.start || '').trim(),
-          sfx: String(d.sfx || '').trim(),
-          scene: String(d.scene || '').trim(),
-          characters: splitNames(d.characters),
-          props: splitNames(d.props),
-          dialogue: d.dialogue
-            .map((x) => ({ role: String(x.role || '').trim().slice(0, 24), line: String(x.line || '').trim().slice(0, 200) }))
-            .filter((x) => x.role && x.line).slice(0, 6),
-        };
-        commit(shots.map((sh, i) => (i === index ? patch : sh)), T('shotSaved'));
-        onClose();
-      };
-      const del = () => { commit(shots.filter((_, i) => i !== index), T('shotDeleted')); onClose(); };
-      const move = (dir) => {
-        const to = index + dir;
-        if (to < 0 || to >= shots.length) return;
-        const next = shots.slice();
-        const tmp = next[index]; next[index] = next[to]; next[to] = tmp;
-        commit(next, T('shotMoved'));
+        toast(capped ? T('shotTableCapped').replace('{t}', String(cap)) : T('shotTableSaved'));
         onClose();
       };
       const segOpts = ['continuation', 'scene_change', 'new_character', 'closeup', 'state_jump', 'opening'];
-      const field = (labelKey, key, opts) => h('label', { key: key, className: 'dshic-shot-edit-row' },
-        h('span', { className: 'dshic-shot-edit-label' }, T(labelKey)),
-        h('input', {
-          className: 'dshic-input', style: { flex: 1, minWidth: 0 }, value: d[key],
-          onChange: (e) => setF(key, e.target.value),
-          onPointerDown: (e) => e.stopPropagation(),
-          ...(opts || {}),
-        }));
+      const field = (labelKey, key, o) => {
+        const opt = o || {};
+        const raw = cur ? cur[key] : '';
+        return h('label', { key: key, className: 'dshic-shot-edit-row' },
+          h('span', { className: 'dshic-shot-edit-label' }, T(labelKey)),
+          h('input', {
+            className: 'dshic-input', style: { flex: 1, minWidth: 0 },
+            value: Array.isArray(raw) ? raw.join('、') : String(raw == null ? '' : raw),
+            placeholder: opt.placeholder || '',
+            onChange: (e) => setF(key, opt.split ? splitNames(e.target.value) : e.target.value),
+            onPointerDown: (e) => e.stopPropagation(),
+            ...(opt.input || {}),
+          }));
+      };
       const area = (labelKey, key, minH) => h('label', { key: key, className: 'dshic-shot-edit-row is-col' },
         h('span', { className: 'dshic-shot-edit-label' }, T(labelKey)),
         h('textarea', {
-          className: 'dshic-textarea', style: { minHeight: minH || 56 }, value: d[key],
+          className: 'dshic-textarea', style: { minHeight: minH || 56 },
+          value: cur ? String(cur[key] == null ? '' : cur[key]) : '',
           onChange: (e) => setF(key, e.target.value),
           onPointerDown: (e) => e.stopPropagation(),
         }));
+      const curDlg = cur ? normalizeDialogue(cur.dialogue) : [];
       return h('div', {
         className: 'dshic-modal-overlay',
         onPointerDown: (e) => { e.stopPropagation(); if (e.target === e.currentTarget) onClose(); },
       },
-        h('div', { className: 'dshic-modal is-shot-edit', style: { width: 620 } },
-          h('div', { className: 'dshic-modal-title' }, T('shotEditTitle') + ' · ' + T('shotPrefix') + ' ' + (index + 1) + ' / ' + shots.length),
-          h('div', { className: 'dshic-hint' }, T('shotEditHint').replace('{t}', String(Math.round(totalDur * 10) / 10))),
-          h('div', { className: 'dshic-shot-edit-body' },
-            h('div', { className: 'dshic-shot-edit-grid' },
-              field('shotFieldTitle', 'title'),
-              field('shotFieldDuration', 'duration', { type: 'text', inputMode: 'decimal', title: T('shotFieldDurationHint') }),
-            ),
-            h('label', { className: 'dshic-shot-edit-row' },
-              h('span', { className: 'dshic-shot-edit-label' }, T('shotFieldSeg')),
-              h('select', {
-                className: 'dshic-select', style: { flex: 1, minWidth: 0 }, value: d.seg,
+        h('div', { className: 'dshic-modal is-sbe', style: { width: 820 } },
+          h('div', { className: 'dshic-modal-title' }, T('shotTableEditTitle') + ' · ' + ((node && node.data && node.data.label) || '')),
+          // 头部：总时长 / 目标 / 归位（整表可见的核心）
+          h('div', { className: 'dshic-sbe-head' },
+            h('strong', {
+              className: cls('dshic-sbe-total', overCap && 'is-over', !overCap && total > target && 'is-warn'),
+              'data-role': 'sbe-total',
+            }, T('shotTableSummary').replace('{n}', String(shots.length)).replace('{t}', String(total))),
+            h('span', { className: 'dshic-shot-edit-label', style: { width: 'auto' } }, T('shotTableTarget')),
+            h('select', {
+              className: 'dshic-select', style: { width: 92, flex: 'none' }, value: String(target), 'data-role': 'sbe-target',
+              onPointerDown: (e) => e.stopPropagation(),
+              onChange: (e) => { setTarget(Number(e.target.value)); setTargetTouched(true); },
+            }, [6, 8, 10, 12, 15].map((x) => h('option', { key: x, value: String(x) }, x + 's'))),
+            h('button', {
+              type: 'button', className: 'dshic-mini is-ghost', 'data-role': 'sbe-fit', disabled: !shots.length,
+              title: T('shotTableFitHint'),
+              onPointerDown: (e) => e.stopPropagation(),
+              onClick: fit,
+            }, Ic('spark', 11), T('shotTableFit')),
+            overCap
+              ? h('span', { className: 'dshic-hint', style: { color: 'var(--dsw-alias-state-error-primary)' } }, T('shotTableOverCapShort'))
+              : null),
+          h('div', { className: 'dshic-sbe-body' },
+            // 左：镜头列表（整表一览；选中即右侧编辑）
+            h('div', { className: 'dshic-sbe-list', 'data-role': 'sbe-list' },
+              h('div', { className: 'dshic-shot-edit-label' }, T('shotTableShots')),
+              shots.map((s, i) => h('button', {
+                key: i, type: 'button', className: cls('dshic-sbe-item', i === sel && 'is-active'),
+                'data-role': 'sbe-item',
                 onPointerDown: (e) => e.stopPropagation(),
-                onChange: (e) => setF('seg', e.target.value),
-              }, segOpts.map((sg) => h('option', { key: sg, value: sg }, T('seg' + sg.charAt(0).toUpperCase() + sg.slice(1))))),
-            ),
-            area('visualLabel', 'visual', 64),
-            area('motionLabel', 'motion', 52),
-            area('shotFieldTimeBeats', 'timeBeats', 52),
-            field('shotFieldCamera', 'camera'),
-            field('shotFieldVfx', 'vfx'),
-            field('shotFieldNegative', 'negative'),
-            h('div', { className: 'dshic-shot-edit-grid' },
-              field('shotFieldTail', 'tail'),
-              field('shotFieldCam', 'cam'),
-            ),
-            h('div', { className: 'dshic-shot-edit-grid' },
-              field('shotFieldStart', 'start'),
-              field('shotFieldSfx', 'sfx'),
-            ),
-            h('div', { className: 'dshic-shot-edit-grid' },
-              field('shotFieldChars', 'characters', { placeholder: T('shotFieldCharsPh') }),
-              field('shotFieldScene', 'scene'),
-            ),
-            field('shotFieldProps', 'props', { placeholder: T('shotFieldCharsPh') }),
-            h('div', { className: 'dshic-shot-edit-row' },
-              h('span', { className: 'dshic-shot-edit-label' }, T('shotFieldDialogue')),
-              h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 } },
-                // 防御：本地草稿本该已是数组，但脏数据（字符串台词）绝不能在这里二次崩掉整个弹窗
-                (Array.isArray(d.dialogue) ? d.dialogue : normalizeDialogue(d.dialogue)).map((dl, di) => h('div', { key: di, className: 'dshic-shot-edit-dlg' },
-                  h('input', {
-                    className: 'dshic-input', style: { width: 86, flex: 'none' }, value: dl.role, placeholder: T('shotDialogueRole'),
-                    onChange: (e) => setF('dialogue', (Array.isArray(d.dialogue) ? d.dialogue : []).map((x, xi) => (xi === di ? { ...x, role: e.target.value } : x))),
-                    onPointerDown: (e) => e.stopPropagation(),
-                  }),
-                  h('input', {
-                    className: 'dshic-input', style: { flex: 1, minWidth: 0 }, value: dl.line, placeholder: T('shotDialogueLine'),
-                    onChange: (e) => setF('dialogue', (Array.isArray(d.dialogue) ? d.dialogue : []).map((x, xi) => (xi === di ? { ...x, line: e.target.value } : x))),
-                    onPointerDown: (e) => e.stopPropagation(),
-                  }),
-                  h('button', {
-                    type: 'button', className: 'dshic-iconbtn is-danger', title: T('shotDialogueRemove'),
-                    onPointerDown: (e) => e.stopPropagation(),
-                    onClick: () => setF('dialogue', (Array.isArray(d.dialogue) ? d.dialogue : []).filter((_, xi) => xi !== di)),
-                  }, '✕'))),
-                h('button', {
-                  type: 'button', className: 'dshic-mini is-ghost', style: { alignSelf: 'flex-start' },
-                  onPointerDown: (e) => e.stopPropagation(),
-                  onClick: () => setF('dialogue', (Array.isArray(d.dialogue) ? d.dialogue : []).concat([{ role: '', line: '' }])),
-                }, Ic('plus', 11), T('shotDialogueAdd')))),
+                onClick: () => setSel(i),
+              },
+                h('span', { className: 'dshic-sbe-item-idx' }, String(i + 1)),
+                h('span', { className: 'dshic-sbe-item-t' }, String(s.title || (T('shotPrefix') + (i + 1)))),
+                h('span', { className: 'dshic-sbe-item-d' }, (Number(s.duration) || 0) + 's'))),
+              !shots.length ? h('div', { className: 'dshic-hint' }, T('shotTableEmpty')) : null),
+            // 右：选中镜头的全部字段
+            h('div', { className: 'dshic-sbe-form' },
+              cur
+                ? [
+                    h('div', { key: 'r1', className: 'dshic-shot-edit-grid' },
+                      field('shotFieldTitle', 'title'),
+                      field('shotFieldDuration', 'duration', { input: { inputMode: 'decimal', title: T('shotFieldDurationHint') } })),
+                    h('label', { key: 'r2', className: 'dshic-shot-edit-row' },
+                      h('span', { className: 'dshic-shot-edit-label' }, T('shotFieldSeg')),
+                      h('select', {
+                        className: 'dshic-select', style: { flex: 1, minWidth: 0 }, value: cur.seg || 'continuation',
+                        onPointerDown: (e) => e.stopPropagation(),
+                        onChange: (e) => setF('seg', e.target.value),
+                      }, segOpts.map((sg) => h('option', { key: sg, value: sg }, T('seg' + sg.charAt(0).toUpperCase() + sg.slice(1)))))),
+                    area('visualLabel', 'visual', 64),
+                    area('motionLabel', 'motion', 52),
+                    area('shotFieldTimeBeats', 'timeBeats', 52),
+                    field('shotFieldCamera', 'camera'),
+                    field('shotFieldVfx', 'vfx'),
+                    field('shotFieldNegative', 'negative'),
+                    h('div', { key: 'r3', className: 'dshic-shot-edit-grid' },
+                      field('shotFieldTail', 'tail'),
+                      field('shotFieldCam', 'cam')),
+                    h('div', { key: 'r4', className: 'dshic-shot-edit-grid' },
+                      field('shotFieldStart', 'start'),
+                      field('shotFieldSfx', 'sfx')),
+                    h('div', { key: 'r5', className: 'dshic-shot-edit-grid' },
+                      field('shotFieldChars', 'characters', { split: true, placeholder: T('shotFieldCharsPh') }),
+                      field('shotFieldScene', 'scene')),
+                    field('shotFieldProps', 'props', { split: true, placeholder: T('shotFieldCharsPh') }),
+                    h('div', { key: 'rdlg', className: 'dshic-shot-edit-row' },
+                      h('span', { className: 'dshic-shot-edit-label' }, T('shotFieldDialogue')),
+                      h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 } },
+                        curDlg.map((dl, di) => h('div', { key: di, className: 'dshic-shot-edit-dlg' },
+                          h('input', {
+                            className: 'dshic-input', style: { width: 86, flex: 'none' }, value: dl.role, placeholder: T('shotDialogueRole'),
+                            onChange: (e) => setF('dialogue', curDlg.map((x, xi) => (xi === di ? { ...x, role: e.target.value } : x))),
+                            onPointerDown: (e) => e.stopPropagation(),
+                          }),
+                          h('input', {
+                            className: 'dshic-input', style: { flex: 1, minWidth: 0 }, value: dl.line, placeholder: T('shotDialogueLine'),
+                            onChange: (e) => setF('dialogue', curDlg.map((x, xi) => (xi === di ? { ...x, line: e.target.value } : x))),
+                            onPointerDown: (e) => e.stopPropagation(),
+                          }),
+                          h('button', {
+                            type: 'button', className: 'dshic-iconbtn is-danger', title: T('shotDialogueRemove'),
+                            onPointerDown: (e) => e.stopPropagation(),
+                            onClick: () => setF('dialogue', curDlg.filter((_, xi) => xi !== di)),
+                          }, '✕'))),
+                        h('button', {
+                          type: 'button', className: 'dshic-mini is-ghost', style: { alignSelf: 'flex-start' },
+                          onPointerDown: (e) => e.stopPropagation(),
+                          onClick: () => setF('dialogue', curDlg.concat([{ role: '', line: '' }])),
+                        }, Ic('plus', 11), T('shotDialogueAdd')))),
+                  ]
+                : h('div', { className: 'dshic-hint' }, T('shotTableEmpty'))),
           ),
           h('div', { className: 'dshic-modal-actions' },
             h('button', {
-              type: 'button', className: 'dshic-btn dshic-btn-outline is-danger', title: T('shotDelete'),
-              onPointerDown: (e) => e.stopPropagation(), onClick: del,
-            }, Ic('trash', 12), T('shotDelete')),
+              type: 'button', className: 'dshic-mini is-ghost', 'data-role': 'sbe-add', title: T('shotAdd'),
+              onPointerDown: (e) => e.stopPropagation(), onClick: addShot,
+            }, Ic('plus', 11), T('shotAdd')),
             h('button', {
-              type: 'button', className: 'dshic-btn dshic-btn-outline', disabled: index <= 0,
-              onPointerDown: (e) => e.stopPropagation(), onClick: () => move(-1),
+              type: 'button', className: 'dshic-mini is-ghost', disabled: !shots.length, title: T('shotDelete'),
+              onPointerDown: (e) => e.stopPropagation(), onClick: delShot,
+            }, Ic('trash', 11), T('shotDelete')),
+            h('button', {
+              type: 'button', className: 'dshic-mini is-ghost', disabled: sel <= 0,
+              onPointerDown: (e) => e.stopPropagation(), onClick: () => moveShot(-1),
             }, '↑ ' + T('shotMoveUp')),
             h('button', {
-              type: 'button', className: 'dshic-btn dshic-btn-outline', disabled: index >= shots.length - 1,
-              onPointerDown: (e) => e.stopPropagation(), onClick: () => move(1),
+              type: 'button', className: 'dshic-mini is-ghost', disabled: sel >= shots.length - 1,
+              onPointerDown: (e) => e.stopPropagation(), onClick: () => moveShot(1),
             }, '↓ ' + T('shotMoveDown')),
             h('div', { className: 'dshic-flex' }),
             h('button', {
@@ -14940,10 +15051,9 @@ function queueThumb(assetId) {
               onPointerDown: (e) => e.stopPropagation(), onClick: onClose,
             }, T('cancel')),
             h('button', {
-              type: 'button', className: 'dshic-btn',
+              type: 'button', className: 'dshic-btn', 'data-role': 'sbe-save',
               onPointerDown: (e) => e.stopPropagation(), onClick: save,
-            }, T('shotSave')),
-          ),
+            }, T('shotTableSave'))),
         ));
     }
 
@@ -14979,7 +15089,20 @@ function queueThumb(assetId) {
       return [
         h('div', { key: 'sum', className: 'dshic-shot-summary' },
           h('b', {}, shots.length ? (shots.length + ' ' + T('shotsUnit')) : T('noShotsYet')),
-          shots.length ? h('span', {}, ' · ' + totalDur + 's · ' + T('multiShotOnce')) : null),
+          shots.length ? h('span', {}, ' · ' + (Math.round(totalDur * 10) / 10) + 's · ' + T('multiShotOnce')) : null),
+        // 总时长超限提示（0.20.6）：默认 ≤10s、硬上限 15s。外部写入的历史大表在这里一眼可见；
+        // 点镜头右侧铅笔 → 整表编辑 →「按目标归位」即可修好。
+        shots.length && totalDur > STORYBOARD_DURATION_MAX + 1e-6
+          ? h('div', {
+              key: 'durlong', className: 'dshic-hint', 'data-role': 'sb-over-cap',
+              style: { color: 'var(--dsw-alias-state-error-primary)' },
+            }, T('shotTableOverCap').replace('{t}', String(Math.round(totalDur * 10) / 10)))
+          : (shots.length && totalDur > storyboardTargetDuration(n) + 1e-6
+            ? h('div', {
+                key: 'durlong', className: 'dshic-hint', 'data-role': 'sb-over-target',
+                style: { color: 'var(--dsw-alias-state-warning-primary, #d08700)' },
+              }, T('shotTableOverTarget').replace('{t}', String(Math.round(totalDur * 10) / 10)).replace('{n}', String(storyboardTargetDuration(n))))
+            : null),
         // 切段摘要：M 段 / 共 N 镜 / 最长 S 秒；forced 时用告警色如实标出
         segPlan && segPlan.segments.length > 1
           ? h('div', { key: 'segsum', className: 'dshic-hint', 'data-role': 'seg-summary', title: T('segPlanHint') },
@@ -15081,6 +15204,12 @@ function queueThumb(assetId) {
                   } catch (err) { toast(String((err && err.message) || err)); }
                 },
               }, Ic('download', 11), T('saveTextAsset')),
+              // 整表编辑入口（0.20.6）：用户要的是"点编辑改整张表"，不是只改一镜
+              h('button', {
+                key: 'edittable', type: 'button', className: 'dshic-mini is-ghost', title: T('shotTableEditTitle'), 'data-role': 'sb-edit',
+                onPointerDown: (e) => e.stopPropagation(),
+                onClick: () => openShotEdit(n.id, 0),
+              }, Ic('pencil', 11), T('shotTableEditTitle')),
               h('button', {
                 key: 'addshot', type: 'button', className: 'dshic-mini is-ghost', title: T('shotAdd'), 'data-role': 'shot-add',
                 onPointerDown: (e) => e.stopPropagation(),
@@ -22079,9 +22208,9 @@ const DIRECTOR_KEY_HELP = [
               : null,
             // 分镜镜头编辑器（单例）：挂在画布层，避免跟随 .dshic-world 的缩放
             S.shotEdit && S.shotEdit.nodeId && S.graph.nodes[S.shotEdit.nodeId]
-              ? h(ShotEditDialog, {
+              ? h(StoryboardEditDialog, {
                   key: 'shotedit:' + S.shotEdit.nodeId + ':' + S.shotEdit.index,
-                  nodeId: S.shotEdit.nodeId, index: S.shotEdit.index,
+                  nodeId: S.shotEdit.nodeId, focusIndex: S.shotEdit.index,
                   onClose: () => update((s) => { s.shotEdit = null; }),
                 })
               : null,
@@ -22948,7 +23077,7 @@ const DIRECTOR_KEY_HELP = [
           // 节点体/生成面板组件出口：供 scripts/test-node-actions.mjs 断言「结果操作按钮必须在节点末尾左下角」，
           // 并供 smoke-render 直接渲染新组件（MediaNodeBody / GenComposer）抓渲染期崩溃；
           // NodeShell 用于断言「点击区域规则」：标题栏/底部操作栏不弹面板，只有内容区弹。
-          window.__DSH_IC_NODES__ = { ScriptNodeBody, StoryboardNodeBody, MediaNodeBody, GenComposer, FinalCutNodeBody, TextNodeBody, ShotNodeBody, NodeShell, ComposerAdvanced, VideoControls, ShotEditDialog };
+          window.__DSH_IC_NODES__ = { ScriptNodeBody, StoryboardNodeBody, MediaNodeBody, GenComposer, FinalCutNodeBody, TextNodeBody, ShotNodeBody, NodeShell, ComposerAdvanced, VideoControls, StoryboardEditDialog };
           // 技能页的非组件出口（不进 __DSH_IC_TABS__ —— 那里会被 smoke-render 当成组件逐个渲染）
           window.__DSH_IC_SKILLPACK__ = {
             SKILL_GLYPHS, loadSkillProfile, saveSkillProfile, buildSkillPackText, buildShotLockText,

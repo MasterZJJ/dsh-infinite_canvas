@@ -1288,15 +1288,27 @@ const barsOn = () => HDR() + FOOT();
   ok(editBtns.length === 1, '分镜每个镜头都必须有编辑入口（实际 ' + editBtns.length + ' 个 / 1 镜）');
   ok(editBtns.every((b) => typeof b.props.onClick === 'function'), '镜头编辑按钮缺少点击处理');
   ok(sbEls.some((e) => e.type === 'button' && e.props && e.props['data-role'] === 'shot-add'), '分镜表缺少「新增镜头」按钮');
-  const Dlg = NODES.ShotEditDialog;
-  ok(typeof Dlg === 'function', 'ShotEditDialog 未导出（镜头编辑无法回归/冒烟）');
+  ok(sbEls.some((e) => e.type === 'button' && e.props && e.props['data-role'] === 'sb-edit'), '分镜表缺少「编辑分镜表」整表入口');
+  const Dlg = NODES.StoryboardEditDialog;
+  ok(typeof Dlg === 'function', 'StoryboardEditDialog 未导出（整表编辑无法回归/冒烟）');
   if (typeof Dlg === 'function') {
-    const dlgEls = findAll(Dlg({ nodeId: 'n_sb', index: 0, onClose: noop }));
-    ok(dlgEls.some((e) => hasClass(e, 'dshic-modal-overlay')), '镜头编辑对话框缺少遮罩层');
+    const dlgEls = findAll(Dlg({ nodeId: 'n_sb', focusIndex: 0, onClose: noop }));
+    ok(dlgEls.some((e) => hasClass(e, 'dshic-modal-overlay')), '整表编辑对话框缺少遮罩层');
+    // 整表：左侧列出**全部**镜头（不是只编辑 focusIndex 那一镜）
+    const items = dlgEls.filter((e) => e.type === 'button' && e.props && e.props['data-role'] === 'sbe-item');
+    const shotCount = (nodeOf('n_sb').data.shots || []).length;
+    ok(items.length === shotCount, '整表编辑器没有列出全部镜头（' + items.length + ' / ' + shotCount + '）');
+    const totalEl = dlgEls.find((e) => e.props && e.props['data-role'] === 'sbe-total');
+    ok(!!totalEl && /总时长|total/.test(String(totalEl.props.children)), '整表编辑器缺少总时长读数（用户看不到表有多大）');
+    ok(dlgEls.some((e) => e.type === 'button' && e.props && e.props['data-role'] === 'sbe-fit'), '整表编辑器缺少「按目标归位」');
+    ok(dlgEls.some((e) => e.props && e.props['data-role'] === 'sbe-target'), '整表编辑器缺少目标时长选择');
     const titleInput = dlgEls.find((e) => e.type === 'input' && e.props && e.props.value === SHOT.title);
-    ok(!!titleInput, '镜头编辑对话框没有带出镜头标题（字段未绑定当前镜头）');
-    ok(dlgEls.some((e) => e.type === 'button' && /保存|Save/.test(String(e.props && e.props.children))), '镜头编辑对话框缺少保存按钮');
-    ok(dlgEls.some((e) => e.type === 'button' && /删除本镜|Delete this shot/.test(String(e.props && e.props.title))), '镜头编辑对话框缺少删除镜头按钮');
+    ok(!!titleInput, '整表编辑器没有带出选中镜头的标题（字段未绑定当前镜头）');
+    ok(dlgEls.some((e) => e.type === 'button' && e.props && e.props['data-role'] === 'sbe-save'), '整表编辑器缺少保存按钮（应一次保存整表）');
+    ok(dlgEls.some((e) => e.type === 'button' && /删除本镜|Delete this shot/.test(String(e.props && e.props.title))), '整表编辑器缺少删除镜头按钮');
+    // 打开即新增：focusIndex === 镜头数 → 草稿里多一镜，取消即丢弃
+    const addEls = findAll(Dlg({ nodeId: 'n_sb', focusIndex: shotCount, onClose: noop }));
+    ok(addEls.filter((e) => e.props && e.props['data-role'] === 'sbe-item').length === shotCount + 1, '「新增镜头」没有把空镜带进整表编辑器');
   }
   // 编排放回 S.shotEdit（画布层单例），否则遮罩会跟着 world 的缩放跑位
   ok(/S\.shotEdit && S\.shotEdit\.nodeId && S\.graph\.nodes\[S\.shotEdit\.nodeId\]/.test(src), '镜头编辑对话框必须在画布层按 S.shotEdit 渲染');
@@ -1402,7 +1414,7 @@ const barsOn = () => HDR() + FOOT();
   ok(!sbThrew, '分镜节点渲染字符串台词时抛错（白屏事故）：' + (sbThrew && sbThrew.message));
   ok(sbEls.some((e) => String(e.props && e.props.children || '').includes('台词')), '分镜节点未渲染台词文本');
   let dlgThrew = null;
-  try { findAll(NODES.ShotEditDialog({ nodeId: 'n_dlg', index: 0, onClose: noop })); } catch (e) { dlgThrew = e; }
+  try { findAll(NODES.StoryboardEditDialog({ nodeId: 'n_dlg', focusIndex: 0, onClose: noop })); } catch (e) { dlgThrew = e; }
   ok(!dlgThrew, '镜头编辑对话框渲染字符串台词时抛错：' + (dlgThrew && dlgThrew.message));
 
   // 加载旧缓存文档（localStorage 里就是字符串）→ loadGraphDoc 必须就地归一
@@ -1413,6 +1425,50 @@ const barsOn = () => HDR() + FOOT();
   const loaded = SYNC.loadGraphDoc(pidD);
   ok(Array.isArray(loaded.nodes.n_old.data.shots[0].dialogue) && loaded.nodes.n_old.data.shots[0].dialogue[0].role === '林晚',
     'loadGraphDoc 未归一旧缓存里的字符串台词（刷新后仍白屏）');
+}
+
+// ============================================================
+// 15) 分镜表整表编辑（0.20.6）：总时长超限提示 + 保存时硬上限归位
+// ============================================================
+{
+  const longShots = [8, 8, 8].map((d, i) => ({
+    title: '长镜' + (i + 1), visual: 'v' + i, motion: 'm' + i, duration: d, seg: 'continuation',
+    characters: [], scene: '', props: [], dialogue: [], sfx: '',
+  }));
+  SYNC.mergeHostDoc(PID, {
+    nodes: { n_long: { id: 'n_long', type: 'storyboard', x: 0, y: 0, w: 360, h: 360, data: { label: '超长分镜表', shots: longShots, aiStatus: 'idle' } } },
+    edges: [],
+  });
+  const longNode = SYNC.graph().nodes.n_long;
+  ok(!!longNode, '前置失败：超长分镜表未进入内存画布');
+  // 节点上必须一眼看见"超过 15s 硬上限"（用户的原话：分镜表的镜头还是很大）
+  const longEls = findAll(NODES.StoryboardNodeBody({ n: longNode }));
+  ok(longEls.some((e) => e.props && e.props['data-role'] === 'sb-over-cap'), '超过 15s 的分镜表没有在节点上提示超限（用户看不到）');
+
+  await (async () => {
+    const dlgEls = findAll(NODES.StoryboardEditDialog({ nodeId: 'n_long', focusIndex: 0, onClose: noop }));
+    const totalEl = dlgEls.find((e) => e.props && e.props['data-role'] === 'sbe-total');
+    ok(!!totalEl && String(totalEl.props.children).includes('24'), '整表编辑器总时长读数错误（应显示 24s）');
+    // 归位按钮：按目标 10s 等比缩放
+    const fitBtn = dlgEls.find((e) => e.type === 'button' && e.props && e.props['data-role'] === 'sbe-fit');
+    ok(!!fitBtn, '整表编辑器缺少归位按钮');
+    let fitThrew = null;
+    try { fitBtn.props.onClick(); } catch (e) { fitThrew = e; }
+    ok(!fitThrew, '归位按钮抛错：' + (fitThrew && fitThrew.message));
+    // 重新渲染，确认归位后 Σ 恰为目标（10s）
+    const afterFit = findAll(NODES.StoryboardEditDialog({ nodeId: 'n_long', focusIndex: 0, onClose: noop }));
+    const totalAfter = afterFit.find((e) => e.props && e.props['data-role'] === 'sbe-total');
+    // 注意：归位写的是草稿 state，未保存 → 节点数据不变；这里只验证按钮本身可点、不崩。
+    ok(!!totalAfter, '归位后编辑器不再渲染');
+    // 保存：Σ > 15 时必须在落库前归位（绝不把超限数据写回）
+    const saveBtn = dlgEls.find((e) => e.type === 'button' && e.props && e.props['data-role'] === 'sbe-save');
+    ok(!!saveBtn, '整表编辑器缺少保存按钮');
+    await saveBtn.props.onClick();
+    const saved = SYNC.graph().nodes.n_long.data.shots || [];
+    const sum = saved.reduce((a, s) => a + (Number(s.duration) || 0), 0);
+    ok(sum <= 15 + 1e-6, '保存整表后总时长仍超过 15s（实际 ' + sum + 's）——硬上限未生效');
+    ok(saved.length === 3, '保存整表后镜头数变化（' + saved.length + '）');
+  })();
 }
 
 if (errs.length) {

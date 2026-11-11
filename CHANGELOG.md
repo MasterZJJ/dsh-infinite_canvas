@@ -61,6 +61,17 @@ GitHub Releases carry the same notes in English; maintainer-facing runbooks live
   only rewrites the text field — no generation, no charge — and keeps the user's
   subject, action and story intent.
 
+### Added
+- **The shot editor is now a whole-storyboard editor.** Opening any shot's pencil
+  (or the new "Edit storyboard" button) shows the entire table: the shot list on
+  the left with each shot's duration, the selected shot's full fields on the
+  right, and a header with the live total, a target-duration selector and a
+  one-click "Fit to target" that scales every shot so the sum lands exactly on
+  the target. Add / delete / move shots and save once. Saving enforces the hard
+  15s cap (an over-limit table is fitted to the target before it is written, never
+  stored over-limit). Storyboard nodes now also flag tables above the 15s cap or
+  above their target, so an oversized table is visible without opening it.
+
 ### Changed
 - **Storyboard total duration is a bounded control now.** The "auto by pacing"
   option (which meant "no upper bound") is gone: the dropdown offers 6/8/10/12/15
