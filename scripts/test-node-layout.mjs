@@ -1355,6 +1355,66 @@ const barsOn = () => HDR() + FOOT();
   ok(sum(fit15) <= STORYBOARD_DURATION_MAX, '任何归位结果都不得超过 15s');
 }
 
+// ============================================================
+// 14) 台词类型归一（0.20.5 事故）：字符串 dialogue 绝不能让画布白屏
+// ============================================================
+{
+  const { normalizeDialogue, dialogueOf } = SYNC;
+  ok(typeof normalizeDialogue === 'function' && typeof dialogueOf === 'function', '台词归一纯函数未导出（无法回归白屏事故）');
+
+  // 字符串（外部/旧文档最常见的形态）：按行拆「角色：台词」，中英文冒号都吃
+  eq(normalizeDialogue('林晚：一生……\n路人: 嗯'), [
+    { role: '林晚', line: '一生……' },
+    { role: '路人', line: '嗯' },
+  ], '字符串台词未按「角色：台词」拆成结构化数组');
+  // 无角色名的行保留正文（不丢台词），最多 6 句
+  eq(normalizeDialogue('只有一句没有角色名'), [{ role: '', line: '只有一句没有角色名' }], '无角色名的台词被丢弃');
+  eq(normalizeDialogue(Array.from({ length: 10 }, (_, i) => '甲：第' + i + '句')).length, 6, '台词条数未限制在 6 句（与写入侧上限一致）');
+  // 混合数组：对象 + 字符串 + null
+  eq(normalizeDialogue([{ role: '甲', line: '一' }, '乙：二', null, 3]), [
+    { role: '甲', line: '一' },
+    { role: '乙', line: '二' },
+  ], '混合数组（对象 + 字符串）未归一');
+  // 脏值一律空数组，绝不抛错
+  for (const bad of [null, undefined, '', 0, 123, {}, true]) {
+    eq(normalizeDialogue(bad), [], '脏值 ' + JSON.stringify(bad) + ' 未归一为空数组');
+  }
+  // URL/整句里的冒号不能被当角色名（左侧 >24 字或含空白）
+  eq(normalizeDialogue('他打开手机看 https://example.com/a'), [{ role: '', line: '他打开手机看 https://example.com/a' }], 'URL 冒号被误切成角色名');
+  // 已规范数组零拷贝返回（渲染热路径）
+  const good = [{ role: '甲', line: '一' }];
+  ok(dialogueOf({ dialogue: good }) === good, '已规范的台词数组应零拷贝返回');
+  ok(Array.isArray(dialogueOf({ dialogue: '林晚：一生……' })), 'dialogueOf 对字符串必须返回数组');
+
+  // 渲染：镜头台词是字符串时，分镜节点与镜头编辑器都不能崩，且仍显示台词
+  const pidD = 'p_dialogue';
+  const dirtyShot = { title: '镜1', visual: '近景，林晚开口', motion: '固定', duration: 2, dialogue: '林晚：一生……', characters: [], scene: '', props: [], sfx: '' };
+  SYNC.mergeHostDoc(PID, {
+    nodes: { n_dlg: { id: 'n_dlg', type: 'storyboard', x: 0, y: 0, w: 360, h: 360, data: { label: '脏台词分镜', shots: [dirtyShot], aiStatus: 'idle' } } },
+    edges: [], bible: null,
+  });
+  const liveShot = SYNC.graph().nodes.n_dlg.data.shots[0];
+  ok(Array.isArray(liveShot.dialogue) && liveShot.dialogue[0].role === '林晚' && liveShot.dialogue[0].line === '一生……',
+    'mergeHostDoc 未把字符串台词归一（画布仍会 .map 崩溃）');
+  let sbThrew = null;
+  let sbEls = [];
+  try { sbEls = findAll(NODES.StoryboardNodeBody({ n: SYNC.graph().nodes.n_dlg })); } catch (e) { sbThrew = e; }
+  ok(!sbThrew, '分镜节点渲染字符串台词时抛错（白屏事故）：' + (sbThrew && sbThrew.message));
+  ok(sbEls.some((e) => String(e.props && e.props.children || '').includes('台词')), '分镜节点未渲染台词文本');
+  let dlgThrew = null;
+  try { findAll(NODES.ShotEditDialog({ nodeId: 'n_dlg', index: 0, onClose: noop })); } catch (e) { dlgThrew = e; }
+  ok(!dlgThrew, '镜头编辑对话框渲染字符串台词时抛错：' + (dlgThrew && dlgThrew.message));
+
+  // 加载旧缓存文档（localStorage 里就是字符串）→ loadGraphDoc 必须就地归一
+  lsStub.setItem('dsh-ic:graph:' + pidD, JSON.stringify({
+    nodes: { n_old: { id: 'n_old', type: 'storyboard', x: 0, y: 0, w: 360, h: 360, data: { shots: [dirtyShot] } } },
+    edges: [], view: { x: 0, y: 0, scale: 1 },
+  }));
+  const loaded = SYNC.loadGraphDoc(pidD);
+  ok(Array.isArray(loaded.nodes.n_old.data.shots[0].dialogue) && loaded.nodes.n_old.data.shots[0].dialogue[0].role === '林晚',
+    'loadGraphDoc 未归一旧缓存里的字符串台词（刷新后仍白屏）');
+}
+
 if (errs.length) {
   console.error('✗ 节点排版/生成面板测试未通过（' + errs.length + ' 项）：');
   for (const e of errs) console.error('  - ' + e);

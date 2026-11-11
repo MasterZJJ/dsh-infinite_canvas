@@ -278,6 +278,31 @@ try {
   } catch { /* 预期：无可用字段时报错 */ }
   const gen = await byName.get('canvas_generate_node').execute({ projectId, nodeId: n.nodeId, waitSeconds: 0 }, {});
   if (!gen || !gen.ok) errs.push('canvas_generate_node 触发未返回 ok');
+
+  // 台词归一（0.20.5 事故）：canvas_update_node 写入字符串台词 → 落库必须是 [{role,line}]。
+  // 画布渲染/提示词组装全是 .map 直取，字符串会让整块画布白屏（实测十一章全挂）。
+  const sb = await byName.get('canvas_create_node').execute({ projectId, type: 'storyboard', name: '脏台词分镜' }, {});
+  if (!sb || !sb.ok || !sb.nodeId) errs.push('canvas_create_node 未创建分镜节点（台词归一用例前置失败）');
+  else {
+    await byName.get('canvas_update_node').execute({
+      projectId, nodeId: sb.nodeId,
+      patch: { shots: [{ title: '镜1', visual: '近景，林晚开口', motion: '固定', duration: 2, dialogue: '林晚：一生……', characters: [], scene: '', props: [], sfx: '' }] },
+    }, {});
+    const dsb = await mod._internals.projectsGet({ id: projectId });
+    const shot = dsb.nodes[sb.nodeId] && dsb.nodes[sb.nodeId].data.shots[0];
+    if (!Array.isArray(shot && shot.dialogue)) errs.push('canvas_update_node 未把字符串台词归一成数组（画布会 .map 崩溃）');
+    else if (shot.dialogue[0].role !== '林晚' || shot.dialogue[0].line !== '一生……') errs.push('字符串台词「角色：台词」解析错误：' + JSON.stringify(shot.dialogue));
+    const stsb = await byName.get('canvas_node_status').execute({ projectId, nodeId: sb.nodeId }, {});
+    if (!Array.isArray(stsb.shots && stsb.shots[0] && stsb.shots[0].dialogue)) errs.push('canvas_node_status 返回的台词不是数组（对话侧会拿到字符串）');
+    // 混合数组（对象 + 字符串）同样归一
+    await byName.get('canvas_update_node').execute({
+      projectId, nodeId: sb.nodeId,
+      patch: { shots: [{ title: '镜2', visual: 'x', motion: 'y', duration: 2, dialogue: [{ role: '甲', line: '一' }, '乙：二'] }] },
+    }, {});
+    const dsb2 = await mod._internals.projectsGet({ id: projectId });
+    const d2 = dsb2.nodes[sb.nodeId].data.shots[0].dialogue;
+    if (!Array.isArray(d2) || d2.length !== 2 || d2[1].role !== '乙') errs.push('canvas_update_node 未归一混合数组台词：' + JSON.stringify(d2));
+  }
 } catch (e) {
   errs.push('设定集/建节点校验失败 → ' + ((e && e.message) || e));
 }

@@ -7,6 +7,19 @@ GitHub Releases carry the same notes in English; maintainer-facing runbooks live
 ## [Unreleased]
 
 ### Fixed
+- **A string `dialogue` on a shot no longer crashes the whole canvas.** Storyboard
+  shots must carry `dialogue` as `[{role, line}]`; documents written by external
+  callers (or older caches) could hold a plain string such as `"林晚：一生……"`,
+  and every render/prompt path called `.map` on it — one bad shot took down all
+  canvases with `sh.dialogue.map is not a function`. A shared `normalizeDialogue`
+  now parses `"角色：台词"` lines (full-width and ASCII colons, at most 6 lines)
+  and `dialogueOf()` is used by the storyboard list, shot editor, prompt builders,
+  voice-reference extraction and asset export; `normalizeGraphDoc` repairs dirty
+  documents on load. The host normalizes the same way on `canvas_update_node`
+  (the real entry point of the incident), `canvas_write_node`, `canvas_node_status`
+  and the consistency checker, so both ends only ever store one shape. Regressions:
+  client render/prompt cases in `test-mentions` / `test-node-layout`, host tool
+  contract in `test-tools`.
 - **The series-bible input disappeared a moment after pressing Add.** Pulling the
   full project document (`mergeHostDoc` / `importHostProject`) used to overwrite
   the local bible unconditionally, and the host-side `normalizeBible` dropped

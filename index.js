@@ -2201,9 +2201,7 @@ function canvasWriteNode(args) {
           scene: String((s && s.scene) || ''),
           props: Array.isArray(s && s.props) ? s.props.map(String) : [],
           duration: Number(s && s.duration) || 5,
-          dialogue: Array.isArray(s && s.dialogue)
-            ? s.dialogue.slice(0, 6).map((d) => ({ role: String(d && d.role || '').trim().slice(0, 24), line: String(d && d.line || '').trim().slice(0, 200) })).filter((d) => d.role && d.line)
-            : [],
+          dialogue: normalizeDialogue(s && s.dialogue),
           sfx: String((s && s.sfx) || '').trim().slice(0, 120),
           // 分镜新四字段（动作节拍/机位三件套/特效/负向词）必须透传：对话侧改 shots 时
           // 不带这些字段才允许被默认清空；带了就保留——否则特效演绎镜落库即退化为纯 visual/motion。
@@ -2948,6 +2946,35 @@ async function canvasRunNode(args) {
  *  台词碎片豁免：名字以「的」结尾且出现在对白文本里的角色/场景/道具视为描述性片段（如台词
  *  「来了个带纸的」被抽成道具「带纸的」），未登记不告警——与客户端 client.js
  *  checkShotConsistency 同规则，两边必须字面同构（防漂移）。 */
+/** 台词归一（与 client.js normalizeDialogue 同规则，两边必须同构）：
+ *  镜头台词只认 `[{role, line}]`。外部写入（canvas_update_node / canvas_write_node / 历史文档）
+ *  可能是字符串——客户端直接 `.map` 会整块白屏（实测事故：dialogue.map is not a function）。
+ *  所有写入分镜镜头的路径都必须过这里，读出（node_status）也过一遍，保证两侧数据只有一种形态。 */
+function normalizeDialogue(raw) {
+  const out = [];
+  const push = (role, line) => {
+    const r = String(role == null ? '' : role).trim().slice(0, 24);
+    const l = String(line == null ? '' : line).trim().slice(0, 200);
+    if (l) out.push({ role: r, line: l });
+  };
+  const parseLine = (line0) => {
+    const line = String(line0 == null ? '' : line0).trim();
+    if (!line) return;
+    const i = line.search(/[：:]/);
+    if (i > 0 && i <= 24 && !/[\s"'“”「」]/.test(line.slice(0, i))) push(line.slice(0, i), line.slice(i + 1));
+    else push('', line);
+  };
+  if (typeof raw === 'string') {
+    for (const line of raw.split(/\r?\n/)) parseLine(line);
+  } else if (Array.isArray(raw)) {
+    for (const d of raw) {
+      if (!d) continue;
+      if (typeof d === 'string') parseLine(d);
+      else if (typeof d === 'object') push(d.role, d.line);
+    }
+  }
+  return out.slice(0, 6);
+}
 function storyboardConsistencyWarnings(bible, shots, extraNames) {
   const entries = [];
   const addEntry = (kind, name, desc) => {
@@ -2965,7 +2992,7 @@ function storyboardConsistencyWarnings(bible, shots, extraNames) {
   // 拼接同 shots 数组内全部对白文本；shots 无 dialogue 字段（旧数据）时按「无对白可查」自然不跳过。
   let dialogueAll = '';
   for (const sh of shots || []) {
-    for (const d of ((sh && sh.dialogue) || [])) dialogueAll += ' ' + String((d && d.line) || '');
+    for (const d of normalizeDialogue(sh && sh.dialogue)) dialogueAll += ' ' + String((d && d.line) || '');
   }
   const check = (title, kind, name, entity) => {
     const q = String(name || '').trim().toLowerCase();
@@ -3034,9 +3061,7 @@ async function canvasNodeStatus(args) {
       scene: String((s && s.scene) || '').slice(0, 100),
       props: Array.isArray(s && s.props) ? s.props.map(String) : [],
       // 台词标注：声音参考提取/对话侧对白定位的数据源
-      dialogue: Array.isArray(s && s.dialogue)
-        ? s.dialogue.slice(0, 6).map((d) => ({ role: String(d && d.role || '').slice(0, 24), line: String(d && d.line || '').slice(0, 200) }))
-        : [],
+      dialogue: normalizeDialogue(s && s.dialogue),
       // 音效/环境音：声音设计提示，随镜头透出给对话侧与视频提示词
       sfx: String((s && s.sfx) || '').slice(0, 120),
       // 分镜衔接（分段生成的接戏依据）：接点尾态/运镜延续/起始态/段落类型——对话侧改写 shots 时必须一起带回
@@ -3176,6 +3201,8 @@ function canvasUpdateNode(args) {
       for (const k2 of ['tail', 'cam', 'start', 'seg']) {
         if (!out[k2] && old[k2]) out[k2] = old[k2];
       }
+      // 台词类型强制归一：外部写入的字符串台词会让画布 `.map` 崩掉整块画布（0.20.5 事故）
+      out.dialogue = normalizeDialogue(out.dialogue);
       return out;
     });
     n.data.shots = arr;
@@ -5242,7 +5269,7 @@ export function apply(ctx) {
             if (shots.length) {
               lines.push('镜头清单（' + shots.length + ' 镜，总时长 ' + shots.reduce((a, x) => a + (Number(x.duration) || 0), 0) + 's）——视频提示词的镜头序列以此为准:');
               shots.forEach((sh) => {
-                const dl = (sh.dialogue || []).map((d) => d.role + '：' + d.line).join('；');
+                const dl = normalizeDialogue(sh.dialogue).map((d) => d.role + '：' + d.line).join('；');
                 lines.push(sh.index + '. ' + sh.title + '（' + sh.duration + 's）' + (sh.seg ? '[' + sh.seg + '] ' : '') + '角色:' + (sh.characters.join('/') || '-') + '｜场景:' + (sh.scene || '-') + '｜道具:' + (sh.props.join('/') || '-')
                   + '\n   画面: ' + sh.visual + '\n   动作: ' + sh.motion
                   + (sh.tail ? '\n   接点尾态(应写进下一镜起始态): ' + sh.tail : '')

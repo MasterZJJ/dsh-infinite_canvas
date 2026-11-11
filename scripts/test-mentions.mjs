@@ -144,6 +144,18 @@ eq(api.bibleNames({ characters: [{ name: '林晚' }], scenes: [{ name: '楼道' 
     if (sp.includes(t)) errs.push('结构化提示词：镜头标题「' + t + '」仍出现在提示词里（会被带音频的模型朗读成台词）');
   }
   if (!sp.includes('绝不朗读')) errs.push('结构化提示词：缺少「镜号/时间码/标题只是剪辑标注、绝不朗读」的硬规则');
+  // 台词类型归一（0.20.5 事故）：dialogue 是字符串时提示词组装不得崩，且台词必须照样进 <d>…</d>
+  {
+    const strShot = { ...shots2[1], dialogue: '糯糯：为什么呀？' };
+    let threw = null;
+    let spStr = '';
+    try { spStr = api.buildStructuredVideoPrompt([strShot], refs2, b2, { zh: true }); } catch (e) { threw = e; }
+    if (threw) errs.push('结构化提示词：字符串台词直接抛错（' + threw.message + '）——画布会白屏');
+    else {
+      if (!spStr.includes('<d>[Chinese] 为什么呀？</d>')) errs.push('结构化提示词：字符串台词未被归一进 <d>…</d>');
+      if (!/Subject|糯糯/.test(spStr)) errs.push('结构化提示词：字符串台词的说话人未绑定主体');
+    }
+  }
 }
 
 // 10) 分镜衔接：段落类型规划 / 衔接块 / 首帧软锚定 / 尾帧选帧评分 / 接缝判定

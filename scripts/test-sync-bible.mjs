@@ -247,7 +247,7 @@ ok(loaded.worldview === '测试世界观' && loaded.characters.length === 1, 'lo
   const canonLines = [
     "let dialogueAll = '';",
     'for (const sh of shots || []) {',
-    "for (const d of ((sh && sh.dialogue) || [])) dialogueAll += ' ' + String((d && d.line) || '');",
+    "for (const d of normalizeDialogue(sh && sh.dialogue)) dialogueAll += ' ' + String((d && d.line) || '');",
     'const check = (title, kind, name, entity) => {',
     "if (entity && String(name || '').trim().endsWith('的') && dialogueAll.includes(String(name || '').trim())) return;",
   ];
@@ -309,12 +309,14 @@ ok(loaded.worldview === '测试世界观' && loaded.characters.length === 1, 'lo
     errs.push('client.js 抽取锚点丢失（checkShotConsistency / MENTION_PURE 结构被改动？）');
   } else {
     const catLabel = (c) => ({ character: '角色', scene: '场景', prop: '道具', general: '通用' }[c] || '通用');
-    const parseMentions = new Function('catLabel', 'effLang', mentionPure[1] + '\nreturn { parseMentions };')(catLabel, () => 'zh').parseMentions;
+    // 台词归一（dialogueOf）在 MENTION_PURE 区块里 —— 与生产代码同一份实现，注入给抽取出的 checkShotConsistency
+    const mentionApi = new Function('catLabel', 'effLang', mentionPure[1] + '\nreturn { parseMentions, normalizeDialogue };')(catLabel, () => 'zh');
+    const parseMentions = mentionApi.parseMentions;
     let clientBible = { characters: [], scenes: [], props: [] };
     let clientAssets = []; // 资产名清单；stub 按 idbByProject 真实形状包成 { name } 记录
-    const checkShotConsistency = new Function('loadBible', 'S', 'T', 'parseMentions', 'idbByProject', 'GENERAL_PID',
+    const checkShotConsistency = new Function('loadBible', 'S', 'T', 'parseMentions', 'idbByProject', 'GENERAL_PID', 'normalizeDialogue',
       'return (' + src.slice(aCsc, bCsc) + ');')(
-      () => clientBible, { activeId: 'p_warn' }, (k) => k, parseMentions, async () => (clientAssets || []).map((n) => ({ name: n })), 'general');
+      () => clientBible, { activeId: 'p_warn' }, (k) => k, parseMentions, async () => (clientAssets || []).map((n) => ({ name: n })), 'general', mentionApi.normalizeDialogue);
     const shot = (o) => Object.assign({ title: '镜1', visual: '中景', motion: '推进', characters: [], scene: '', props: [], dialogue: [], duration: 3 }, o);
     const hasWarn = (ws, name) => ws.some((w) => w.includes('「' + name + '」'));
     const run = async (bible, shots, assets) => { clientBible = bible; clientAssets = assets || []; return await checkShotConsistency(shots); };

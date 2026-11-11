@@ -119,6 +119,13 @@ function revealCanvasInRight() {
       if (!doc || typeof doc !== 'object') return doc;
       for (const n of Object.values(doc.nodes || {})) {
         normalizeNode(n);
+        // 分镜镜头台词：脏类型必须在进内存前归一。旧缓存里可能存着字符串台词，
+        // 直接进渲染/提示词就是 `dialogue.map is not a function`（整块画布白屏）。
+        if (n && n.type === 'storyboard' && n.data && Array.isArray(n.data.shots)) {
+          for (const sh of n.data.shots) {
+            if (sh && typeof sh === 'object' && sh.dialogue !== undefined) sh.dialogue = dialogueOf(sh);
+          }
+        }
         // 旧文档里 360×360 的图片/视频盒子会在预览上下/左右留白：按记录比例（或资产尺寸）校正
         normalizeMediaNodeSize(n);
       }
@@ -4215,6 +4222,45 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
     // 资产库里该实体的其它图（设定集绑定/历史生成/多视图）绝不自动追加——否则会出现"只连 6 张却报 9 张超限"。
     // 以下为纯函数（无副作用），供 scripts/test-mentions.mjs 抽取单测
     // <<<MENTION_PURE_BEGIN>>>
+    /** 台词归一（纯函数、幂等）：镜头台词只认 `[{role, line}]`。
+     *  历史数据/外部写入可能是字符串（`"林晚：一生……"`，多行按行拆）或脏对象；而渲染、
+     *  提示词组装、资产导出、声音参考提取全都是 `.map` 直取——一旦混入字符串就是整块白屏
+     *  （实测事故：`sh.dialogue.map is not a function`，十一个章节画布全挂）。
+     *  所以所有读取口都必须经过本函数（或 `dialogueOf`），绝不再直接 `.map`。
+     *  规则：只把「第一个冒号 + 左侧 ≤24 字且不含空白/引号」当角色名（避免把 URL/整句误切）；
+     *  无角色名的行保留为 line（由上层决定是否过滤）；最多 6 句（与写入侧上限一致）。 */
+    function normalizeDialogue(raw) {
+      const out = [];
+      const push = (role, line) => {
+        const r = String(role == null ? '' : role).trim().slice(0, 24);
+        const l = String(line == null ? '' : line).trim().slice(0, 200);
+        if (l) out.push({ role: r, line: l });
+      };
+      const parseLine = (line0) => {
+        const line = String(line0 == null ? '' : line0).trim();
+        if (!line) return;
+        const i = line.search(/[：:]/);
+        if (i > 0 && i <= 24 && !/[\s"'“”「」]/.test(line.slice(0, i))) push(line.slice(0, i), line.slice(i + 1));
+        else push('', line);
+      };
+      if (typeof raw === 'string') {
+        for (const line of raw.split(/\r?\n/)) parseLine(line);
+      } else if (Array.isArray(raw)) {
+        for (const d of raw) {
+          if (!d) continue;
+          if (typeof d === 'string') parseLine(d);
+          else if (typeof d === 'object') push(d.role, d.line);
+        }
+      }
+      return out.slice(0, 6);
+    }
+    /** 分镜镜头的台词（永远返回数组）：已规范的数据零拷贝返回（渲染热路径），脏数据就地归一并返回新数组。 */
+    function dialogueOf(shot) {
+      const d = shot && shot.dialogue;
+      if (Array.isArray(d) && d.every((x) => x && typeof x === 'object')) return d;
+      return normalizeDialogue(d);
+    }
+
     /** @资产名@ 的词法（双 @ 精确包裹）：终止符是闭合 @，绝不可能把后文吞进名称；
      *  名称内禁止 @、空白与常见标点。前端渲染时隐藏两个 @，名称显示为蓝色加粗。 */
     const MENTION_RE = /@([^@\s，。；：、,.;:!?！？()（）\[\]【】"'“”<>《》/\\|]{1,64}?)@/g;
@@ -4447,7 +4493,7 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
         if (!prevShot) seg = 'opening';
         else if (/换场|场景切换|转场|另一处|另一场景|切至|切到|次日|翌日|与此同时|数日后|[Cc]ut to/.test(shotVisualText(s))) seg = 'scene_change';
         else if (/新角色|首次出场|走进来|入镜|入场|冒出|推门进|[Ee]nters?/.test(shotVisualText(s))) seg = 'new_character';
-        else if (Number(s.duration) > 0 && Number(s.duration) < 1.5 && !(s.dialogue || []).length) seg = 'closeup';
+        else if (Number(s.duration) > 0 && Number(s.duration) < 1.5 && !dialogueOf(s).length) seg = 'closeup';
         else seg = 'continuation';
       }
       if (seg === 'opening' && prevShot) seg = 'continuation'; // 首段只能在第 1 镜；后面标"开场"视为续帧
@@ -4617,7 +4663,7 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
      */
     function planShotSegments(shots, opts) {
       const o = opts || {};
-      const list = (Array.isArray(shots) ? shots : []).filter((s) => s && (String(s.visual || '').trim() || String(s.motion || '').trim() || (Array.isArray(s.dialogue) && s.dialogue.length)));
+      const list = (Array.isArray(shots) ? shots : []).filter((s) => s && (String(s.visual || '').trim() || String(s.motion || '').trim() || dialogueOf(s).length));
       const maxSeconds = Math.max(1, Number(o.maxSeconds) || 15);
       const minSeconds = Math.max(0, Math.min(Number(o.minSeconds) || 2, maxSeconds));
       const warnings = [];
@@ -4894,7 +4940,7 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
     function buildStructuredVideoPrompt(shots, refs, bible, opts) {
       const o = opts || {};
       const zh = o.zh !== false;
-      const list = (shots || []).filter((s) => s && (String(s.visual || '').trim() || String(s.motion || '').trim() || (s.dialogue || []).length));
+      const list = (shots || []).filter((s) => s && (String(s.visual || '').trim() || String(s.motion || '').trim() || dialogueOf(s).length));
       if (!list.length) return '';
       // 主体分配：一个实体一个 Subject，可对应多张 Picture；顺序 = 参考图中首次出现
       const subjects = [];
@@ -4964,7 +5010,7 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
       };
       const appearsIn = (sub) => list.map((_, i) => i + 1).filter((idx) => {
         const s = list[idx - 1];
-        const hay = [s.visual, s.motion, s.title, (s.characters || []).join(' '), s.scene, (s.props || []).join(' '), (s.dialogue || []).map((d) => d && d.role).join(' ')].join(' ');
+        const hay = [s.visual, s.motion, s.title, (s.characters || []).join(' '), s.scene, (s.props || []).join(' '), dialogueOf(s).map((d) => d && d.role).join(' ')].join(' ');
         return hay.includes(sub.name);
       });
       const outs = [];
@@ -4998,7 +5044,7 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
       outs.push('detailed_description:');
       const style = bibleStyleAnchor(bible);
       if (style) outs.push((zh ? '风格：' : 'Style: ') + style);
-      const hasDialogue = list.some((s) => (s.dialogue || []).some((d) => String((d && d.line) || '').trim()));
+      const hasDialogue = list.some((s) => dialogueOf(s).some((d) => String((d && d.line) || '').trim()));
       if (hasDialogue) {
         outs.push(zh
           ? '台词必须由画面内对应的主体当场开口说出（口型与台词同步、语气贴合情绪）；严禁画外音/旁白。'
@@ -5025,7 +5071,7 @@ body[data-ds-dark-theme] .dshic-pick-item.is-on{background:color-mix(in srgb,var
         if (visual) parts.push(visual);
         const motion = rewrite(String(s.motion || '').trim());
         if (motion) parts.push((zh ? '运镜/动作：' : 'Camera/Action: ') + motion);
-        const dls = (s.dialogue || [])
+        const dls = dialogueOf(s)
           .map((d) => ({ role: String((d && d.role) || '').trim(), line: String((d && d.line) || '').trim() }))
           .filter((d) => d.line);
         if (dls.length) {
@@ -8034,12 +8080,12 @@ function queueThumb(assetId) {
       let t = 0;
       for (const s of shots) {
         const d = Number(s.duration) || 0;
-        const lines = (s.dialogue || []).filter((l) => String(l.role || '').trim().toLowerCase() === rl);
+        const lines = dialogueOf(s).filter((l) => String(l.role || '').trim().toLowerCase() === rl);
         if (lines.length) windows.push({ title: s.title, from: t, to: t + d, lines });
         t += d;
       }
       if (!windows.length) {
-        const roles = [...new Set((shots || []).flatMap((s) => (s.dialogue || []).map((l) => String(l.role || '').trim()).filter(Boolean)))];
+        const roles = [...new Set((shots || []).flatMap((s) => dialogueOf(s).map((l) => String(l.role || '').trim()).filter(Boolean)))];
         throw new Error(T('voiceRoleNotFound').replace('{roles}', roles.join('、') || '—'));
       }
       const ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -9820,7 +9866,7 @@ function queueThumb(assetId) {
         }
         const sh = prevTail.shot;
         if (!sh) return null;
-        const dl = (sh.dialogue || []).map((d) => d.role + (zh ? '：' : ': ') + d.line).join(zh ? '；' : '; ');
+        const dl = dialogueOf(sh).map((d) => d.role + (zh ? '：' : ': ') + d.line).join(zh ? '；' : '; ');
         const tailState = String(sh.tail || '').trim();
         const camState = String(sh.cam || '').trim();
         return zh
@@ -9900,9 +9946,7 @@ function queueThumb(assetId) {
         scene: String(s.scene || ''),
         props: Array.isArray(s.props) ? s.props.map(String).slice(0, 6) : [],
         duration: Number.isFinite(Number(s.duration)) ? Math.max(0.3, Math.round(Number(s.duration) * 10) / 10) : 3,
-        dialogue: Array.isArray(s.dialogue)
-          ? s.dialogue.slice(0, 6).map((d) => ({ role: String(d && d.role || '').trim().slice(0, 24), line: String(d && d.line || '').trim().slice(0, 200) })).filter((d) => d.role && d.line)
-          : [],
+        dialogue: normalizeDialogue(s.dialogue),
         sfx: String(s.sfx || '').trim().slice(0, 120),
       }));
     }
@@ -9930,7 +9974,7 @@ function queueThumb(assetId) {
       // 拼接同 shots 数组内全部对白文本；shots 无 dialogue 字段（旧数据）时按「无对白可查」自然不跳过。
       let dialogueAll = '';
       for (const sh of shots || []) {
-        for (const d of ((sh && sh.dialogue) || [])) dialogueAll += ' ' + String((d && d.line) || '');
+        for (const d of normalizeDialogue(sh && sh.dialogue)) dialogueAll += ' ' + String((d && d.line) || '');
       }
       const check = (title, kind, name, entity) => {
         const q = String(name || '').trim().toLowerCase();
@@ -10804,7 +10848,7 @@ function queueThumb(assetId) {
       const zh = effLang() !== 'en';
       const durOf = (s) => Math.max(0.3, Number(s.duration) || 3);
       const total = Math.round(shots.reduce((a, s) => a + durOf(s), 0) * 10) / 10;
-      const hasDialogue = shots.some((s) => (s.dialogue || []).length);
+      const hasDialogue = shots.some((s) => dialogueOf(s).length);
       const head = seg && seg.count > 1
         ? (zh
           ? `【按镜头切段 · 第 ${seg.index + 1}/${seg.count} 段】本段只生成 ${shots.length} 镜、总时长 ${total} 秒（全表第 ${seg.from + 1}–${seg.to + 1} 镜）。严格按下列顺序与时长切镜（每镜时长不可变），镜头之间直接硬切，不要叠加转场。`
@@ -10857,11 +10901,11 @@ function queueThumb(assetId) {
         if (cam) parts.push((zh ? '机位/焦段/运镜' : 'Camera/lens/move') + '：' + cam);
         const vfx = String(s.vfx || '').trim();
         if (vfx) parts.push((zh ? '特效（必须可见）' : 'VFX (must be visible)') + '：' + vfx);
-        const dls = (s.dialogue || []).map((d) => String(d && d.role || '').trim() + '：' + String(d && d.line || '').trim()).filter((x) => x.replace('：', '').trim());
+        const dls = dialogueOf(s).map((d) => String(d && d.role || '').trim() + '：' + String(d && d.line || '').trim()).filter((x) => x.replace('：', '').trim());
         if (dls.length) {
           parts.push(zh
-            ? '台词（由' + (s.dialogue || []).map((d) => String(d && d.role || '').trim()).filter(Boolean).join('、') + '在画面内开口说出，口型与台词同步）：' + dls.join('；')
-            : 'Dialogue (spoken on screen by ' + (s.dialogue || []).map((d) => String(d && d.role || '').trim()).filter(Boolean).join(', ') + ', lip-synced): ' + dls.join('; '));
+            ? '台词（由' + dialogueOf(s).map((d) => String(d && d.role || '').trim()).filter(Boolean).join('、') + '在画面内开口说出，口型与台词同步）：' + dls.join('；')
+            : 'Dialogue (spoken on screen by ' + dialogueOf(s).map((d) => String(d && d.role || '').trim()).filter(Boolean).join(', ') + ', lip-synced): ' + dls.join('; '));
         }
         if (String(s.sfx || '').trim()) parts.push((zh ? '音效：' : 'SFX: ') + String(s.sfx).trim());
         lines.push((zh ? `镜头${i + 1}（${dur}s）：` : `Shot ${i + 1} (${dur}s): `) + parts.join(zh ? '；' : '; '));
@@ -11134,7 +11178,7 @@ function queueThumb(assetId) {
     /** 分镜节点的资产文本（自动入库与手动"存为资产"共用，避免两处格式漂移）。 */
     function storyboardAssetText(shots) {
       return (shots || []).map((x) => {
-        const dls = (x.dialogue || []).map((d) => `${d.role}：${d.line}`).join('\n');
+        const dls = dialogueOf(x).map((d) => `${d.role}：${d.line}`).join('\n');
         const sfx = String(x.sfx || '').trim();
         return `【${x.title}】${x.duration}s\n画面：${x.visual}\n动作：${x.motion}`
           + (dls ? `\n${dls}` : '')
@@ -12601,7 +12645,7 @@ function queueThumb(assetId) {
         }
         return out;
       })();
-      const roles = [...new Set(shots.flatMap((s) => (s.dialogue || []).map((l) => String(l.role || '').trim()).filter(Boolean)))];
+      const roles = [...new Set(shots.flatMap((s) => dialogueOf(s).map((l) => String(l.role || '').trim()).filter(Boolean)))];
       const [role, setRole] = useState('');
       const [manual, setManual] = useState(false);
       const [startS, setStartS] = useState('0');
@@ -12616,7 +12660,7 @@ function queueThumb(assetId) {
         let t = 0;
         for (const s of shots) {
           const d = Number(s.duration) || 0;
-          const lines = (s.dialogue || []).filter((l) => String(l.role || '').trim().toLowerCase() === rl);
+          const lines = dialogueOf(s).filter((l) => String(l.role || '').trim().toLowerCase() === rl);
           if (lines.length) out.push({ title: s.title, from: t, to: t + d, lines: lines.map((l) => l.role + '：' + l.line) });
           t += d;
         }
@@ -14743,7 +14787,7 @@ function queueThumb(assetId) {
         scene: String(src.scene || ''),
         characters: (src.characters || []).join('、'),
         props: (src.props || []).join('、'),
-        dialogue: (src.dialogue || []).map((x) => ({ role: String((x && x.role) || ''), line: String((x && x.line) || '') })),
+        dialogue: normalizeDialogue(src.dialogue),
       }));
       const setF = (k, v) => setD((prev) => ({ ...prev, [k]: v }));
       const splitNames = (v) => String(v || '').split(/[、,，;；\s]+/).map((x) => x.trim()).filter(Boolean).slice(0, 6);
@@ -14854,26 +14898,27 @@ function queueThumb(assetId) {
             h('div', { className: 'dshic-shot-edit-row' },
               h('span', { className: 'dshic-shot-edit-label' }, T('shotFieldDialogue')),
               h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 } },
-                d.dialogue.map((dl, di) => h('div', { key: di, className: 'dshic-shot-edit-dlg' },
+                // 防御：本地草稿本该已是数组，但脏数据（字符串台词）绝不能在这里二次崩掉整个弹窗
+                (Array.isArray(d.dialogue) ? d.dialogue : normalizeDialogue(d.dialogue)).map((dl, di) => h('div', { key: di, className: 'dshic-shot-edit-dlg' },
                   h('input', {
                     className: 'dshic-input', style: { width: 86, flex: 'none' }, value: dl.role, placeholder: T('shotDialogueRole'),
-                    onChange: (e) => setF('dialogue', d.dialogue.map((x, xi) => (xi === di ? { ...x, role: e.target.value } : x))),
+                    onChange: (e) => setF('dialogue', (Array.isArray(d.dialogue) ? d.dialogue : []).map((x, xi) => (xi === di ? { ...x, role: e.target.value } : x))),
                     onPointerDown: (e) => e.stopPropagation(),
                   }),
                   h('input', {
                     className: 'dshic-input', style: { flex: 1, minWidth: 0 }, value: dl.line, placeholder: T('shotDialogueLine'),
-                    onChange: (e) => setF('dialogue', d.dialogue.map((x, xi) => (xi === di ? { ...x, line: e.target.value } : x))),
+                    onChange: (e) => setF('dialogue', (Array.isArray(d.dialogue) ? d.dialogue : []).map((x, xi) => (xi === di ? { ...x, line: e.target.value } : x))),
                     onPointerDown: (e) => e.stopPropagation(),
                   }),
                   h('button', {
                     type: 'button', className: 'dshic-iconbtn is-danger', title: T('shotDialogueRemove'),
                     onPointerDown: (e) => e.stopPropagation(),
-                    onClick: () => setF('dialogue', d.dialogue.filter((_, xi) => xi !== di)),
+                    onClick: () => setF('dialogue', (Array.isArray(d.dialogue) ? d.dialogue : []).filter((_, xi) => xi !== di)),
                   }, '✕'))),
                 h('button', {
                   type: 'button', className: 'dshic-mini is-ghost', style: { alignSelf: 'flex-start' },
                   onPointerDown: (e) => e.stopPropagation(),
-                  onClick: () => setF('dialogue', d.dialogue.concat([{ role: '', line: '' }])),
+                  onClick: () => setF('dialogue', (Array.isArray(d.dialogue) ? d.dialogue : []).concat([{ role: '', line: '' }])),
                 }, Ic('plus', 11), T('shotDialogueAdd')))),
           ),
           h('div', { className: 'dshic-modal-actions' },
@@ -14999,8 +15044,8 @@ function queueThumb(assetId) {
                   String(sh.cam || '').trim()
                     ? h('div', { className: 'dshic-shot-label', style: { marginTop: 2, opacity: 0.85 } }, '🎥 ' + String(sh.cam).trim())
                     : null,
-                  (sh.dialogue || []).length
-                    ? h('div', { className: 'dshic-shot-label', style: { marginTop: 3 } }, '台词 ' + sh.dialogue.map((d) => `${d.role}：${d.line}`).join('；'))
+                  dialogueOf(sh).length
+                    ? h('div', { className: 'dshic-shot-label', style: { marginTop: 3 } }, '台词 ' + dialogueOf(sh).map((d) => `${(d && d.role) || ''}：${(d && d.line) || ''}`).join('；'))
                     : null,
                   String(sh.sfx || '').trim()
                     ? h('div', { className: 'dshic-shot-label', style: { marginTop: 2, opacity: 0.85 } }, '音效 ' + String(sh.sfx).trim())
@@ -23002,6 +23047,8 @@ const DIRECTOR_KEY_HELP = [
             parseScriptScenes,
             // 纯函数出口：分镜总时长口径（0.20.5：默认 10s / 硬上限 15s）与时长归位
             storyboardTargetDuration, storyboardSegmentCap, fitShotDurations,
+            // 台词归一（0.20.5 事故：字符串台词让 .map 白屏）：纯函数出口供回归直接断言
+            normalizeDialogue, dialogueOf,
             STORYBOARD_DURATION_DEFAULT, STORYBOARD_DURATION_MAX,
           };
           // IC-01：下载侧扩展名判定的纯函数出口（供 scripts/test-download-ext.mjs 直接断言）
